@@ -63,7 +63,7 @@
         <div class="save">وفّر <span id="saveAmt">251</span> جنيه</div>
       </div>
 
-      <div class="countdown-box">
+      <div class="countdown-box" id="countdownBox">
         ⏳ عرض النهاردة بيخلص خلال:
         <div class="countdown"><span id="cdH">00</span>:<span id="cdM">00</span>:<span id="cdS">00</span></div>
       </div>
@@ -117,7 +117,7 @@
   </section>
 
   <!-- ===== FEATURES ===== -->
-  <section class="section">
+  <section class="section" id="featuresSection">
     <h2 id="featuresTitle">ليه ترنج V11؟ 🤔</h2>
     <div class="features" id="featuresGrid">
       <div class="feature">🧥<b>خامة ميلتون تقيلة</b><span>بطانة داخلية ناعمة تدفيك في عز البرد ومبتوبرش</span></div>
@@ -128,7 +128,7 @@
   </section>
 
   <!-- ===== HOW ===== -->
-  <section class="section how">
+  <section class="section how" id="howSection">
     <h2 id="howTitle">هتستلم طلبك إزاي؟ 📝</h2>
     <div class="steps">
       <div class="step"><span>1</span><b>املا الفورم تحت</b><span>الاسم ورقم الموبايل والعنوان</span></div>
@@ -138,7 +138,7 @@
   </section>
 
   <!-- ===== REVIEWS ===== -->
-  <section class="section">
+  <section class="section" id="reviewsSection">
     <h2 id="reviewsTitle">عملائنا بيقولوا إيه؟ ⭐</h2>
     <div class="reviews" id="reviewsGrid">
       <div class="review"><div class="stars">★★★★★</div><p>"الخامة تقيلة فعلاً والتلبيس مظبوط، أحسن ترنج جبته الشتا ده."</p><b>— أحمد م. | القاهرة</b></div>
@@ -165,7 +165,7 @@
   </section>
 
   <!-- ===== FAQ ===== -->
-  <section class="section">
+  <section class="section" id="faqSection">
     <h2 id="faqTitle">أسئلة شائعة ❓</h2>
     <div class="faq">
       <div class="faq-item"><button class="faq-q">المقاسات عاملة إزاي؟ <span>+</span></button><div class="faq-a">المقاسات مظبوطة (M لـ XXL). لو وزنك بين مقاسين اختار الأكبر، ولو المقاس مش مظبوط بنستبدلهولك بسهولة.</div></div>
@@ -195,7 +195,7 @@
         <label>الاسم بالكامل *<input type="text" name="name" placeholder="مثال: أحمد محمد" required></label>
         <label>رقم الموبايل *<input type="tel" name="phone" inputmode="numeric" placeholder="01xxxxxxxxx" maxlength="11" required><small>لازم يبدأ بـ 01 ومكوّن من 11 رقم</small></label>
         <label>المحافظة *<select name="governorate" id="govSelect" required><option value="">— اختار المحافظة —</option></select></label>
-        <label>كود الخصم (لو معاك)
+        <label id="couponField">كود الخصم (لو معاك)
           <div class="coupon-row"><input type="text" id="couponInput" placeholder="مثال: WELCOME10" dir="ltr" style="text-transform:uppercase"><button type="button" id="couponBtn">تطبيق ✅</button></div>
           <small id="couponMsg"></small>
         </label>

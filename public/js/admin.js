@@ -25,6 +25,12 @@ const FIELD_MAP = {
   sDealTitle: 'deal_title', sDealSub: 'deal_sub', sDealEndsAt: 'deal_ends_at'
 };
 
+const VIS_MAP = {
+  vReviews: 'show_reviews', vCoupon: 'show_coupon', vFeatures: 'show_features',
+  vTrust: 'show_trust', vHow: 'show_how', vFaq: 'show_faq',
+  vCountdown: 'show_countdown', vAnnounce: 'show_announce', vWa: 'show_wa'
+};
+
 async function api(url, method = 'GET', body) {
   const r = await fetch(url, {
     method,
@@ -458,6 +464,7 @@ async function loadSettings() {
   if (!s.theme_primary) $('sThemePrimary').value = '#ff7a00';
   if (!s.theme_dark) $('sThemeDark').value = '#141419';
   $('sDealEnabled').checked = s.deal_enabled === '1';
+  Object.entries(VIS_MAP).forEach(([id, key]) => { $(id).checked = s[key] !== '0'; });
   for (let i = 1; i <= 4; i++) {
     $('ff' + i + 'i').value = s['f' + i + 'i'] || '';
     $('ff' + i + 't').value = s['f' + i + 't'] || '';
@@ -477,6 +484,7 @@ async function saveSettings() {
   });
   // empty color = default theme (don't force a value)
   body.deal_enabled = $('sDealEnabled').checked ? '1' : '';
+  Object.entries(VIS_MAP).forEach(([id, key]) => { body[key] = $(id).checked ? '1' : '0'; });
   for (let i = 1; i <= 4; i++) {
     body['f' + i + 'i'] = $('ff' + i + 'i').value;
     body['f' + i + 't'] = $('ff' + i + 't').value;

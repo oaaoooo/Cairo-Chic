@@ -20,7 +20,9 @@ const SETTINGS_KEYS = [
   't1i', 't1t', 't1d', 't2i', 't2t', 't2d', 't3i', 't3t', 't3d', 't4i', 't4t', 't4d',
   'theme_primary', 'theme_dark',
   'deal_enabled', 'deal_title', 'deal_sub', 'deal_ends_at',
-  'logo_url'
+  'logo_url',
+  'show_reviews', 'show_coupon', 'show_features', 'show_trust', 'show_how',
+  'show_faq', 'show_countdown', 'show_announce', 'show_wa'
 ];
 
 const DEFAULT_REVIEWS = [
@@ -553,6 +555,7 @@ export async function createApp({ q, sessionSecret }) {
         if (v && !/^#[0-9a-fA-F]{6}$/.test(v)) continue; // ignore invalid colors
       }
       else if (k === 'deal_enabled') v = (v === '1' || v === 'true' || v === 'on') ? '1' : '';
+      else if (k.startsWith('show_')) v = (v === '0') ? '0' : '1';
       else if (k === 'deal_ends_at') v = v.trim().slice(0, 25);
       else if (/^[ft][1-4]i$/.test(k)) v = v.trim().slice(0, 8);
       else v = v.trim().slice(0, 500);

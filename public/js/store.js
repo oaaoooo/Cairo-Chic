@@ -52,6 +52,7 @@ async function init() {
     applyTheme();
     applyContent();
     applyDeal();
+    applyVisibility();
     buildGovSelect();
     if (PRODUCTS.length) selectProduct(PRODUCTS[0].id);
     if (PRODUCTS.length > 1) renderMoreProducts();
@@ -132,6 +133,25 @@ function applyDeal() {
   if (SETTINGS.deal_title) $('dealTitle').textContent = SETTINGS.deal_title;
   if (SETTINGS.deal_sub) $('dealSub').textContent = SETTINGS.deal_sub;
   banner.style.display = '';
+}
+
+const SHOW_MAP = {
+  show_reviews: ['reviewsSection', 'ratingLine'],
+  show_coupon: ['couponField'],
+  show_features: ['featuresSection'],
+  show_trust: ['trustGrid'],
+  show_how: ['howSection'],
+  show_faq: ['faqSection'],
+  show_countdown: ['countdownBox'],
+  show_announce: ['announce']
+};
+// empty/missing = visible; '0' = hidden
+function applyVisibility() {
+  if (!SETTINGS) return;
+  Object.entries(SHOW_MAP).forEach(([key, ids]) => {
+    const on = SETTINGS[key] !== '0';
+    ids.forEach(id => { const el = $(id); if (el) el.style.display = on ? '' : 'none'; });
+  });
 }
 
 function selectProduct(id) {
@@ -521,7 +541,7 @@ function startCountdown() {
 
 // ---------- UI ----------
 function updateWaFloat() {
-  if (!SETTINGS || !SETTINGS.whatsapp || !CURRENT) return;
+  if (!SETTINGS || !SETTINGS.whatsapp || !CURRENT || SETTINGS.show_wa === '0') { $('waFloat').style.display = 'none'; return; }
   const wa = $('waFloat');
   wa.style.display = 'flex';
   wa.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(`أهلاً ${SETTINGS.store_name_ar || 'كايرو شيك'}، عندي استفسار عن ${CURRENT.name}`)}`;
