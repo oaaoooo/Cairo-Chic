@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+
+Sitemap: https://cairo-chic.style-elshare3.workers.dev/sitemap.xml
