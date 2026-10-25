@@ -27,6 +27,7 @@ export function createNeonDb(url) {
       color TEXT, size TEXT, qty INTEGER,
       unit_price NUMERIC, shipping NUMERIC, total NUMERIC,
       coupon_code TEXT DEFAULT '', discount NUMERIC DEFAULT 0,
+      items TEXT DEFAULT '[]',
       name TEXT, phone TEXT, governorate TEXT, address TEXT, notes TEXT DEFAULT '',
       status TEXT DEFAULT 'new',
       created_at TIMESTAMPTZ DEFAULT NOW())`;
@@ -52,6 +53,7 @@ export function createNeonDb(url) {
     // ---- migrate old DBs: coupon columns on orders ----
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT DEFAULT ''`;
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount NUMERIC DEFAULT 0`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS items TEXT DEFAULT '[]'`;
     // ---- seed governorates once (from current shipping settings, single query) ----
     const cnt = await sql`SELECT COUNT(*)::int c FROM governorates`;
     if (!cnt[0].c) {

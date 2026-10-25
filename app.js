@@ -82,6 +82,19 @@ export async function createApp({ q, sessionSecret }) {
     await setSetting('reviews_seeded', '1');
   }
 
+  // ---------- Backfill items JSON for pre-cart orders (once, then no-op) ----------
+  try {
+    const old = await q`SELECT id, product_id, product_name, color, size, qty, unit_price FROM orders WHERE items = '' OR items = '[]' OR items IS NULL LIMIT 200`;
+    for (const o of old.rows) {
+      const items = JSON.stringify([{
+        pid: o.product_id, name: o.product_name || '', color: o.color || '',
+        size: o.size || '', qty: Number(o.qty) || 1, unit: Number(o.unit_price) || 0
+      }]);
+      await q`UPDATE orders SET items = ${items} WHERE id = ${o.id}`;
+    }
+    if (old.rows.length) console.log(`↩️ Backfilled items for ${old.rows.length} order(s)`);
+  } catch (e) { console.error('items backfill failed', e); }
+
   // ---------- Rate limits (in-memory, per isolate) ----------
   const hits = new Map();
   function limit(kind, max) {
@@ -189,12 +202,11 @@ export async function createApp({ q, sessionSecret }) {
   app.post('/api/order', limit('order', 10), async (c) => {
     try {
       const b = await c.req.json().catch(() => ({}));
-      let { product_id, color, size, qty, name, phone, governorate, address, notes } = b;
+      let { name, phone, governorate, address, notes } = b;
       name = String(name || '').trim();
       address = String(address || '').trim();
       notes = String(notes || '').trim();
       phone = normalizePhone(phone);
-      qty = Math.max(1, Math.min(5, parseInt(qty) || 1));
 
       if (name.length < 3) return c.json({ ok: false, error: 'اكتب الاسم بالكامل (3 حروف على الأقل)' });
       if (!/^01[0125][0-9]{8}$/.test(phone)) return c.json({ ok: false, error: 'رقم الموبايل غلط — لازم يبدأ بـ 01 ومكوّن من 11 رقم' });
@@ -203,14 +215,35 @@ export async function createApp({ q, sessionSecret }) {
       const gr = await q`SELECT shipping FROM governorates WHERE name = ${governorate}`;
       if (!gr.rows.length) return c.json({ ok: false, error: 'اختار المحافظة' });
 
-      const pr = await q`SELECT * FROM products WHERE id = ${product_id} AND active = 1`;
-      if (!pr.rows.length) return c.json({ ok: false, error: 'المنتج غير متاح' });
-      const pp = parseProduct(pr.rows[0]);
-      if (!pp.colors.map(x => x.name).includes(color)) return c.json({ ok: false, error: 'اختار اللون' });
-      if (!pp.sizes.includes(size)) return c.json({ ok: false, error: 'اختار المقاس' });
+      // normalize items (support legacy single-product payload)
+      let rawItems = [];
+      if (Array.isArray(b.items) && b.items.length) {
+        rawItems = b.items.slice(0, 10).map(it => ({
+          product_id: it.product_id,
+          color: String(it.color || ''),
+          size: String(it.size || ''),
+          qty: Math.max(1, Math.min(5, parseInt(it.qty) || 1))
+        }));
+      } else if (b.product_id) {
+        rawItems = [{
+          product_id: b.product_id,
+          color: String(b.color || ''),
+          size: String(b.size || ''),
+          qty: Math.max(1, Math.min(5, parseInt(b.qty) || 1))
+        }];
+      }
+      if (!rawItems.length) return c.json({ ok: false, error: 'السلة فاضية — ضيف منتج الأول 🛒' });
 
-      const unit = Number(pp.price);
-      const subtotal = unit * qty;
+      const lines = [];
+      for (const it of rawItems) {
+        const pr = await q`SELECT * FROM products WHERE id = ${it.product_id} AND active = 1`;
+        if (!pr.rows.length) return c.json({ ok: false, error: 'في منتج في السلة بقى غير متاح — حدّث الصفحة وحاول تاني' });
+        const pp = parseProduct(pr.rows[0]);
+        if (!pp.colors.map(x => x.name).includes(it.color)) return c.json({ ok: false, error: `(${pp.name}): اختار اللون` });
+        if (!pp.sizes.includes(it.size)) return c.json({ ok: false, error: `(${pp.name}): اختار المقاس` });
+        lines.push({ pid: pp.id, name: pp.name, color: it.color, size: it.size, qty: it.qty, unit: Number(pp.price) });
+      }
+      const subtotal = lines.reduce((a, l) => a + l.unit * l.qty, 0);
 
       // coupon (revalidated server-side, never trust client math)
       let couponCode = '', discount = 0;
@@ -228,18 +261,20 @@ export async function createApp({ q, sessionSecret }) {
 
       const shipping = Number(gr.rows[0].shipping);
       const total = subtotal - discount + shipping;
+      const first = lines[0];
 
       const ins = await q`INSERT INTO orders
-        (product_id, product_name, color, size, qty, unit_price, shipping, total, coupon_code, discount,
+        (product_id, product_name, color, size, qty, unit_price, shipping, total, coupon_code, discount, items,
          name, phone, governorate, address, notes)
-        VALUES (${pp.id},${pp.name},${color},${size},${qty},${unit},${shipping},${total},${couponCode},${discount},
+        VALUES (${first.pid},${first.name},${first.color},${first.size},${first.qty},${first.unit},
+          ${shipping},${total},${couponCode},${discount},${JSON.stringify(lines)},
           ${name},${phone},${governorate},${address},${notes})
         RETURNING id`;
       const id = ins.rows[0].id;
       const order_no = 'CC-' + (100000 + Number(id));
       await q`UPDATE orders SET order_no = ${order_no} WHERE id = ${id}`;
 
-      return c.json({ ok: true, order_no, total, shipping, discount });
+      return c.json({ ok: true, order_no, total, shipping, discount, items_count: lines.length });
     } catch (e) {
       console.error('order error', e);
       return c.json({ ok: false, error: 'حصل خطأ، حاول تاني' }, 500);
@@ -296,6 +331,16 @@ export async function createApp({ q, sessionSecret }) {
       rows = (await q`SELECT * FROM orders WHERE status = ${status} ORDER BY id DESC`).rows;
     else
       rows = (await q`SELECT * FROM orders ORDER BY id DESC LIMIT 500`).rows;
+    rows = rows.map(o => {
+      try { o.items = JSON.parse(o.items || '[]'); } catch { o.items = []; }
+      if (!o.items.length && o.product_name) {
+        o.items = [{
+          pid: o.product_id, name: o.product_name, color: o.color,
+          size: o.size, qty: o.qty, unit: Number(o.unit_price) || 0
+        }];
+      }
+      return o;
+    });
     return c.json({ ok: true, orders: rows, statusAr: STATUS_AR });
   });
 

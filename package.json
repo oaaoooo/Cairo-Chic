@@ -1,6 +1,6 @@
 {
   "name": "cairo-chic-store",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Cairo Chic store - Hono API (Node + Cloudflare Workers) + Neon Postgres",
   "type": "module",
   "scripts": {

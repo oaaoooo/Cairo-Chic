@@ -21,6 +21,7 @@ export const DDL_SQLITE = [
     color TEXT, size TEXT, qty INTEGER,
     unit_price REAL, shipping REAL, total REAL,
     coupon_code TEXT DEFAULT '', discount REAL DEFAULT 0,
+    items TEXT DEFAULT '[]',
     name TEXT, phone TEXT, governorate TEXT, address TEXT, notes TEXT DEFAULT '',
     status TEXT DEFAULT 'new',
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
@@ -71,6 +72,7 @@ export function createSqliteDb() {
     const cols = db.prepare('PRAGMA table_info(orders)').all().map(c => c.name);
     if (!cols.includes('coupon_code')) db.exec(`ALTER TABLE orders ADD COLUMN coupon_code TEXT DEFAULT ''`);
     if (!cols.includes('discount')) db.exec(`ALTER TABLE orders ADD COLUMN discount REAL DEFAULT 0`);
+    if (!cols.includes('items')) db.exec(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`);
     // ---- seed governorates once (from current shipping settings) ----
     const n = db.prepare('SELECT COUNT(*) c FROM governorates').get().c;
     if (!n) {

@@ -24,7 +24,10 @@
         <div class="brand-en">CAIRO CHIC</div>
       </div>
     </div>
-    <a href="#order" class="btn btn-primary btn-sm" data-cta>اطلب دلوقتي 🔥</a>
+    <div class="header-actions">
+      <button class="cart-btn" id="cartOpen" title="سلة المشتريات">🛒<span class="cart-badge" id="cartBadge">0</span></button>
+      <a href="#order" class="btn btn-primary btn-sm" data-cta>اطلب دلوقتي 🔥</a>
+    </div>
   </div>
 </header>
 
@@ -72,7 +75,10 @@
         </div>
       </div>
 
-      <a href="#order" class="btn btn-primary btn-big" data-cta>اطلب دلوقتي — الدفع عند الاستلام 🛒</a>
+      <div class="buy-actions">
+        <a href="#order" class="btn btn-primary btn-big" id="expressBtn" data-cta>اطلب دلوقتي — الدفع عند الاستلام 🛒</a>
+        <button type="button" class="btn btn-cart" id="addCartBtn">➕ أضف للسلة</button>
+      </div>
       <div class="stock-line" id="stockLine">⚡ باقي <b>7 قطع بس</b> بالسعر ده — الكمية محدودة</div>
     </div>
   </section>
@@ -165,11 +171,11 @@
     <h2>📋 اطلب دلوقتي — الدفع عند الاستلام</h2>
     <div class="order-grid">
       <div class="order-summary">
-        <img id="sumImage" src="/images/v11-black.jpg" alt="">
-        <div>
-          <b id="sumName">ترنج V11 الشتوي</b>
-          <div class="sum-line">اللون: <b id="sumColor">الأسود</b> | المقاس: <b id="sumSize">L</b> | الكمية: <b id="sumQty">1</b></div>
-          <div class="sum-line">سعر المنتج: <b><span id="sumPrice">599</span> جنيه</b></div>
+        <div class="sum-body">
+          <b>🧾 ملخص الطلب (<span id="sumCount">0</span>)</b>
+          <div id="sumLines"></div>
+          <div class="empty-hint" id="emptyCartHint">🛒 سلتك فاضية — اختار اللون والمقاس ودوس <b>اطلب دلوقتي</b> أو <b>أضف للسلة</b> من فوق 👆</div>
+          <div class="sum-line">المجموع الفرعي: <b><span id="sumPrice">0</span> جنيه</b></div>
           <div class="sum-line" id="discountLine" style="display:none">الخصم (<span id="sumCoupon"></span>): <b style="color:#0d9b4d">−<span id="sumDiscount">0</span> جنيه</b></div>
           <div class="sum-line">الشحن: <b><span id="sumShip">—</span></b></div>
           <div class="sum-total">الإجمالي: <b><span id="sumTotal">599</span> جنيه</b></div>
@@ -222,6 +228,19 @@
   <div><b><span id="stickyPrice">599</span> جنيه</b><span class="sticky-old"><span id="stickyOld">850</span> جنيه</span></div>
   <a href="#order" class="btn btn-primary" data-cta>اطلب الآن 🛒</a>
 </div>
+
+<div class="cart-overlay" id="cartOverlay"></div>
+<aside class="cart-drawer" id="cartDrawer" aria-label="سلة المشتريات">
+  <div class="cart-head"><b>🛒 سلة المشتريات (<span id="cartCount2">0</span>)</b><button id="cartClose" type="button">✕</button></div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-foot">
+    <div class="cart-sub">المجموع الفرعي: <b><span id="cartSub">0</span> جنيه</b></div>
+    <small class="muted">+ الشحن (بيتحسب حسب محافظتك في فورم الطلب)</small>
+    <a href="#order" class="btn btn-primary btn-big" id="cartCheckout">إتمام الطلب ✅</a>
+    <button class="btn btn-ghost" id="cartContinue" type="button">متابعة التسوق</button>
+  </div>
+</aside>
+<div class="toast" id="toast"></div>
 
 <script src="/js/store.js"></script>
 </body>

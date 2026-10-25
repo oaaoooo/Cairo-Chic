@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 let SETTINGS = null, PRODUCTS = [], CURRENT = null;
 let selColor = 0, selSize = 1, qty = 1;
+let CART = []; // [{pid, color, size, qty}]
 let COUPON = null; // {code, kind, value, min_order}
 let REVIEWS = [];
 let myRating = 5;
@@ -45,6 +46,7 @@ async function init() {
       fetch('/api/products').then(r => r.json())
     ]);
     SETTINGS = s; PRODUCTS = p.products || [];
+    loadCart(); cleanCart();
     if (SETTINGS.announcement) $('announce').textContent = SETTINGS.announcement;
     applyBrand();
     applyTheme();
@@ -53,7 +55,6 @@ async function init() {
     buildGovSelect();
     if (PRODUCTS.length) selectProduct(PRODUCTS[0].id);
     if (PRODUCTS.length > 1) renderMoreProducts();
-    // section titles from settings (fallback to defaults)
     $('featuresTitle').textContent = SETTINGS.features_title || DEF_TITLES.featuresTitle;
     $('reviewsTitle').textContent = SETTINGS.reviews_title || DEF_TITLES.reviewsTitle;
     $('howTitle').textContent = SETTINGS.how_title || DEF_TITLES.howTitle;
@@ -67,6 +68,8 @@ async function init() {
   startCountdown();
   bindUI();
   paintStars();
+  renderCart();
+  updateSummary();
 }
 
 function applyBrand() {
@@ -164,7 +167,7 @@ function renderProduct() {
     img.src = c.image || '/images/logo.jpg';
     img.alt = c.name;
     img.className = i === selColor ? 'active' : '';
-    img.onclick = () => { selColor = i; renderProduct(); updateSummary(); };
+    img.onclick = () => { selColor = i; renderProduct(); };
     thumbs.appendChild(img);
   });
   $('mainImage').src = (p.colors[selColor] && p.colors[selColor].image) || '/images/logo.jpg';
@@ -176,7 +179,7 @@ function renderProduct() {
     b.type = 'button';
     b.className = 'color-btn' + (i === selColor ? ' active' : '');
     b.textContent = c.name;
-    b.onclick = () => { selColor = i; renderProduct(); updateSummary(); };
+    b.onclick = () => { selColor = i; renderProduct(); };
     cb.appendChild(b);
   });
   $('colorName').textContent = p.colors[selColor] ? p.colors[selColor].name : '';
@@ -188,7 +191,7 @@ function renderProduct() {
     b.type = 'button';
     b.className = 'size-btn' + (i === selSize ? ' active' : '');
     b.textContent = s;
-    b.onclick = () => { selSize = i; renderProduct(); updateSummary(); };
+    b.onclick = () => { selSize = i; renderProduct(); };
     sb.appendChild(b);
   });
   $('sizeName').textContent = p.sizes[selSize] || '';
@@ -220,9 +223,120 @@ function renderMoreProducts() {
   });
 }
 
+// ---------- Cart ----------
+function loadCart() {
+  try { CART = JSON.parse(localStorage.getItem('cc_cart') || '[]'); } catch { CART = []; }
+  if (!Array.isArray(CART)) CART = [];
+}
+function saveCart() {
+  try { localStorage.setItem('cc_cart', JSON.stringify(CART)); } catch { /* ignore */ }
+  updateCartBadge();
+}
+function cleanCart() {
+  CART = CART.filter(l => {
+    const p = PRODUCTS.find(x => x.id === l.pid);
+    return p && p.colors.some(c => c.name === l.color) && p.sizes.includes(l.size);
+  });
+  CART.forEach(l => { l.qty = Math.max(1, Math.min(5, parseInt(l.qty) || 1)); });
+  saveCart();
+}
+function cartDetailed() {
+  return CART.map((l, i) => ({ ...l, i, p: PRODUCTS.find(x => x.id === l.pid) })).filter(x => x.p);
+}
+function cartSubtotal() {
+  return cartDetailed().reduce((a, x) => a + x.p.price * x.qty, 0);
+}
+function cartCount() {
+  return CART.reduce((a, l) => a + (parseInt(l.qty) || 0), 0);
+}
+function updateCartBadge() {
+  const n = cartCount();
+  const b = $('cartBadge');
+  b.textContent = n;
+  b.style.display = n ? '' : 'none';
+  $('cartCount2').textContent = n;
+}
+function lineImage(x) {
+  const c = (x.p.colors.find(c => c.name === x.color) || x.p.colors[0] || {}).image;
+  return c || '/images/logo.jpg';
+}
+
+function addCurrentToCart(openDrawer) {
+  if (!CURRENT) return;
+  const color = CURRENT.colors[selColor] ? CURRENT.colors[selColor].name : '';
+  const size = CURRENT.sizes[selSize] || '';
+  if (!color || !size) { toast('اختار اللون والمقاس الأول'); return; }
+  const ex = CART.find(l => l.pid === CURRENT.id && l.color === color && l.size === size);
+  if (ex) ex.qty = Math.min(5, ex.qty + qty);
+  else {
+    if (CART.length >= 10) { toast('السلة مليانة (10 منتجات بحد أقصى)'); return; }
+    CART.push({ pid: CURRENT.id, color, size, qty });
+  }
+  qty = 1; $('qtyVal').textContent = '1';
+  saveCart(); renderCart(); updateSummary();
+  toast('اتضاف للسلة ✅');
+  if (openDrawer) openCart();
+}
+
+function changeQty(i, d) {
+  if (!CART[i]) return;
+  CART[i].qty = Math.max(1, Math.min(5, CART[i].qty + d));
+  saveCart(); renderCart(); updateSummary();
+}
+function removeLine(i) {
+  CART.splice(i, 1);
+  saveCart(); renderCart(); updateSummary();
+}
+
+function renderCart() {
+  const det = cartDetailed();
+  const box = $('cartItems');
+  box.innerHTML = '';
+  if (!det.length) {
+    box.innerHTML = '<p class="muted" style="text-align:center;padding:30px 10px">سلتك فاضية 🛒<br>ضيف منتجات واطلبهم كلهم بشحن واحد!</p>';
+  }
+  det.forEach(x => {
+    const d = document.createElement('div');
+    d.className = 'cart-item';
+    d.innerHTML = `
+      <img src="${lineImage(x)}" alt="">
+      <div class="grow"><b>${esc(x.p.name)}</b>
+        <small>🎨 ${esc(x.color)} | 📏 ${esc(x.size)}</small>
+        <div class="qty-mini"><button type="button" data-a="dec">−</button><span>${x.qty}</span><button type="button" data-a="inc">+</button></div>
+      </div>
+      <div class="cart-line-side"><b>${x.p.price * x.qty} ج</b><button type="button" data-a="rm" class="cart-rm">حذف 🗑</button></div>`;
+    d.querySelector('[data-a=inc]').onclick = () => changeQty(x.i, 1);
+    d.querySelector('[data-a=dec]').onclick = () => changeQty(x.i, -1);
+    d.querySelector('[data-a=rm]').onclick = () => removeLine(x.i);
+    box.appendChild(d);
+  });
+  $('cartSub').textContent = cartSubtotal();
+  updateCartBadge();
+}
+
+function openCart() {
+  renderCart();
+  $('cartDrawer').classList.add('open');
+  $('cartOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeCart() {
+  $('cartDrawer').classList.remove('open');
+  $('cartOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+let toastT = null;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
 // ---------- Governorates & shipping ----------
 function govList() {
-  // supports new [{name,shipping}] and legacy [names] shapes
   return (SETTINGS.governorates || []).map(g => {
     if (typeof g === 'string') {
       const ship = (SETTINGS.city_govs || []).includes(g) ? SETTINGS.shipping_cities : SETTINGS.shipping_others;
@@ -262,12 +376,13 @@ async function applyCoupon() {
   const code = input.value.trim().toUpperCase().replace(/\s+/g, '');
   msg.textContent = ''; msg.style.color = '';
   if (!code) { COUPON = null; updateSummary(); return; }
-  if (!CURRENT) return;
+  const sub = cartSubtotal();
+  if (!sub) { msg.style.color = 'var(--red)'; msg.textContent = '❌ ضيف منتج للسلة الأول 🛒'; return; }
   msg.textContent = 'جاري التحقق... ⏳';
   try {
     const r = await fetch('/api/coupon', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, subtotal: CURRENT.price * qty })
+      body: JSON.stringify({ code, subtotal: sub })
     });
     const j = await r.json();
     if (!j.ok) { COUPON = null; msg.style.color = 'var(--red)'; msg.textContent = '❌ ' + (j.error || 'كود غلط'); updateSummary(); return; }
@@ -283,14 +398,21 @@ async function applyCoupon() {
 
 // ---------- Summary ----------
 function updateSummary() {
-  if (!CURRENT) return;
-  const img = (CURRENT.colors[selColor] && CURRENT.colors[selColor].image) || '/images/logo.jpg';
-  $('sumImage').src = img;
-  $('sumName').textContent = CURRENT.name;
-  $('sumColor').textContent = CURRENT.colors[selColor] ? CURRENT.colors[selColor].name : '';
-  $('sumSize').textContent = CURRENT.sizes[selSize] || '';
-  $('sumQty').textContent = qty;
-  const sub = CURRENT.price * qty;
+  const det = cartDetailed();
+  const box = $('sumLines');
+  box.innerHTML = '';
+  det.forEach(x => {
+    const line = document.createElement('div');
+    line.className = 'sum-item';
+    line.innerHTML = `
+      <img src="${lineImage(x)}" alt="">
+      <div class="grow"><b>${esc(x.p.name)}</b><small>🎨 ${esc(x.color)} | 📏 ${esc(x.size)} | × ${x.qty}</small></div>
+      <b>${x.p.price * x.qty} ج</b>`;
+    box.appendChild(line);
+  });
+  $('sumCount').textContent = det.reduce((a, x) => a + x.qty, 0);
+  $('emptyCartHint').style.display = det.length ? 'none' : '';
+  const sub = cartSubtotal();
   $('sumPrice').textContent = sub;
   const disc = couponDiscount(sub);
   if (COUPON && disc > 0) {
@@ -299,12 +421,13 @@ function updateSummary() {
     $('sumCoupon').textContent = COUPON.code;
   } else {
     $('discountLine').style.display = 'none';
-    if (COUPON && disc === 0) $('couponMsg').textContent = '⚠️ الكود مش شغال على المبلغ ده';
+    if (!det.length && COUPON) { COUPON = null; $('couponMsg').textContent = ''; }
+    else if (COUPON && disc === 0) $('couponMsg').textContent = '⚠️ الكود مش شغال على المبلغ ده';
   }
   const gov = $('govSelect').value;
   const ship = shippingFor(gov);
   $('sumShip').textContent = gov ? ship + ' جنيه' : '— (اختار المحافظة)';
-  $('sumTotal').textContent = sub - disc + (gov ? ship : 0);
+  $('sumTotal').textContent = sub - disc + (gov && det.length ? ship : 0);
 }
 
 // ---------- Reviews ----------
@@ -405,9 +528,16 @@ function updateWaFloat() {
 }
 
 function bindUI() {
-  $('qtyPlus').onclick = () => { if (qty < 5) { qty++; $('qtyVal').textContent = qty; updateSummary(); } };
-  $('qtyMinus').onclick = () => { if (qty > 1) { qty--; $('qtyVal').textContent = qty; updateSummary(); } };
+  $('qtyPlus').onclick = () => { if (qty < 5) { qty++; $('qtyVal').textContent = qty; } };
+  $('qtyMinus').onclick = () => { if (qty > 1) { qty--; $('qtyVal').textContent = qty; } };
   document.querySelectorAll('[data-cta]').forEach(a => a.addEventListener('click', () => track('AddToCart')));
+  $('expressBtn').addEventListener('click', () => addCurrentToCart(false));
+  $('addCartBtn').onclick = () => addCurrentToCart(true);
+  $('cartOpen').onclick = openCart;
+  $('cartClose').onclick = closeCart;
+  $('cartOverlay').onclick = closeCart;
+  $('cartContinue').onclick = closeCart;
+  $('cartCheckout').addEventListener('click', closeCart);
   document.querySelectorAll('.faq-q').forEach(q => q.onclick = () => q.parentElement.classList.toggle('open'));
   $('govSelect').addEventListener('change', updateSummary);
   $('couponBtn').onclick = applyCoupon;
@@ -434,12 +564,11 @@ async function submitOrder(e) {
   e.preventDefault();
   const err = $('formError'), btn = $('submitBtn');
   err.textContent = '';
+  const det = cartDetailed();
+  if (!det.length) { err.textContent = 'السلة فاضية — ضيف منتج الأول 🛒'; return; }
   const fd = new FormData(e.target);
   const payload = {
-    product_id: CURRENT.id,
-    color: CURRENT.colors[selColor] ? CURRENT.colors[selColor].name : '',
-    size: CURRENT.sizes[selSize] || '',
-    qty,
+    items: CART.map(l => ({ product_id: l.pid, color: l.color, size: l.size, qty: l.qty })),
     coupon_code: COUPON ? COUPON.code : '',
     name: fd.get('name').trim(),
     phone: normDigits(fd.get('phone')),
@@ -467,10 +596,14 @@ async function submitOrder(e) {
     $('okOrderNo').textContent = j.order_no;
     $('okTotal').textContent = j.total;
     if (SETTINGS.whatsapp) {
+      const itemsTxt = det.map(x => `${x.p.name} (${x.color}/${x.size} ×${x.qty})`).join(' + ');
       const w = $('waConfirm');
       w.style.display = '';
-      w.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(`أهلاً، أنا سجلت طلب ${j.order_no} (${CURRENT.name} - ${payload.color} - ${payload.size}) وعايز أأكده`)}`;
+      w.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(`أهلاً، أنا سجلت طلب ${j.order_no} (${itemsTxt}) وعايز أأكده`)}`;
     }
+    CART = []; COUPON = null;
+    saveCart(); renderCart(); updateSummary();
+    $('couponMsg').textContent = '';
     $('orderSuccess').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch {
     err.textContent = 'مشكلة في الاتصال، حاول تاني';

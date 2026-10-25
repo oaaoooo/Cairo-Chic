@@ -149,13 +149,16 @@ async function loadOrders() {
   }
   j.orders.forEach(o => {
     const tr = document.createElement('tr');
-    const waText = encodeURIComponent(`أهلاً ${o.name}، معاك كايرو شيك 🦅 بخصوص طلبك رقم ${o.order_no} (${o.product_name} - ${o.color} - ${o.size}) بإجمالي ${o.total} جنيه. نأكد الطلب؟`);
+    const items = (o.items && o.items.length ? o.items : [{ name: o.product_name, color: o.color, size: o.size, qty: o.qty }]);
+    const itemsHtml = items.map(l => `${esc(l.name)}<br>🎨 ${esc(l.color)} | 📏 ${esc(l.size)} | × ${l.qty}`).join('<hr style="margin:4px 0;border:none;border-top:1px dashed #ddd">');
+    const itemsTxt = items.map(l => `${l.name} (${l.color}/${l.size} ×${l.qty})`).join(' + ');
+    const waText = encodeURIComponent(`أهلاً ${o.name}، معاك كايرو شيك 🦅 بخصوص طلبك رقم ${o.order_no} (${itemsTxt}) بإجمالي ${o.total} جنيه. نأكد الطلب؟`);
     const couponLine = o.coupon_code ? `<br><small>🎟 <b dir="ltr">${esc(o.coupon_code)}</b> (خصم ${o.discount})</small>` : '';
     tr.innerHTML = `
       <td><b dir="ltr">${o.order_no}</b></td>
       <td style="white-space:nowrap">${(o.created_at || '').slice(0, 16).replace('T', ' ')}</td>
       <td><b>${esc(o.name)}</b><br><a href="tel:${o.phone}" dir="ltr">${o.phone}</a></td>
-      <td>${esc(o.product_name)}<br>🎨 ${esc(o.color)} | 📏 ${esc(o.size)} | × ${o.qty}</td>
+      <td>${itemsHtml}</td>
       <td><b>${o.total} ج</b><br><small class="muted">شحن: ${o.shipping}</small>${couponLine}</td>
       <td>${esc(o.governorate)}<br><small>${esc(o.address)}</small>${o.notes ? `<br><small>📝 ${esc(o.notes)}</small>` : ''}</td>
       <td><select class="status-select" data-id="${o.id}">
