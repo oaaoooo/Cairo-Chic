@@ -328,11 +328,17 @@ export async function createApp({ q, sessionSecret }) {
 
   app.get('/api/admin/orders', requireAdmin, async (c) => {
     const status = c.req.query('status');
-    let rows;
-    if (status && ORDER_STATUSES.includes(status))
-      rows = (await q`SELECT * FROM orders WHERE status = ${status} ORDER BY id DESC`).rows;
-    else
-      rows = (await q`SELECT * FROM orders ORDER BY id DESC LIMIT 500`).rows;
+    const PAGE = 50;
+    const page = Math.max(1, parseInt(c.req.query('page')) || 1);
+    const off = (page - 1) * PAGE;
+    let rows, total;
+    if (status && ORDER_STATUSES.includes(status)) {
+      total = Number((await q`SELECT COUNT(*) c FROM orders WHERE status = ${status}`).rows[0].c);
+      rows = (await q`SELECT * FROM orders WHERE status = ${status} ORDER BY id DESC LIMIT ${PAGE} OFFSET ${off}`).rows;
+    } else {
+      total = Number((await q`SELECT COUNT(*) c FROM orders`).rows[0].c);
+      rows = (await q`SELECT * FROM orders ORDER BY id DESC LIMIT ${PAGE} OFFSET ${off}`).rows;
+    }
     rows = rows.map(o => {
       try { o.items = JSON.parse(o.items || '[]'); } catch { o.items = []; }
       if (!o.items.length && o.product_name) {
@@ -343,7 +349,7 @@ export async function createApp({ q, sessionSecret }) {
       }
       return o;
     });
-    return c.json({ ok: true, orders: rows, statusAr: STATUS_AR });
+    return c.json({ ok: true, orders: rows, statusAr: STATUS_AR, page, pages: Math.max(1, Math.ceil(total / PAGE)), total });
   });
 
   app.patch('/api/admin/orders/:id', requireAdmin, async (c) => {
@@ -356,6 +362,59 @@ export async function createApp({ q, sessionSecret }) {
   app.delete('/api/admin/orders/:id', requireAdmin, async (c) => {
     await q`DELETE FROM orders WHERE id = ${c.req.param('id')}`;
     return c.json({ ok: true });
+  });
+
+  // ---------- Admin: bulk delete orders ----------
+  app.delete('/api/admin/orders', requireAdmin, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const ids = (Array.isArray(b.ids) ? b.ids : []).map(Number).filter(n => Number.isInteger(n) && n > 0).slice(0, 200);
+    if (!ids.length) return c.json({ ok: false, error: 'مفيش طلبات محددة' });
+    for (const id of ids) await q`DELETE FROM orders WHERE id = ${id}`;
+    return c.json({ ok: true, deleted: ids.length });
+  });
+
+  // ---------- Admin: storage & cleanup ----------
+  async function findOrphanImages() {
+    const products = (await q`SELECT colors FROM products`).rows;
+    const used = new Set();
+    const re = /\/img\/(\d+)/g;
+    for (const p of products) {
+      let m;
+      const s = String(p.colors || '');
+      while ((m = re.exec(s))) used.add(Number(m[1]));
+    }
+    const imgs = (await q`SELECT id, LENGTH(data) s FROM product_images`).rows;
+    return imgs.filter(im => !used.has(Number(im.id)));
+  }
+
+  app.get('/api/admin/storage', requireAdmin, async (c) => {
+    const orphans = await findOrphanImages();
+    const orphanBytes = orphans.reduce((a, im) => a + (Number(im.s) || 0), 0);
+    const imgTot = (await q`SELECT COUNT(*) c, COALESCE(SUM(LENGTH(data)),0) s FROM product_images`).rows[0];
+    const siteTot = (await q`SELECT COUNT(*) c, COALESCE(SUM(LENGTH(data)),0) s FROM site_images`).rows[0];
+    const realKB = (b64len) => Math.round(Number(b64len) * 0.75 / 1024);
+    return c.json({
+      ok: true,
+      stats: {
+        products: Number((await q`SELECT COUNT(*) c FROM products`).rows[0].c),
+        orders: Number((await q`SELECT COUNT(*) c FROM orders`).rows[0].c),
+        reviews: Number((await q`SELECT COUNT(*) c FROM reviews`).rows[0].c),
+        coupons: Number((await q`SELECT COUNT(*) c FROM coupons`).rows[0].c),
+        images: { count: Number(imgTot.c), kb: realKB(imgTot.s) },
+        siteImages: { count: Number(siteTot.c), kb: realKB(siteTot.s) },
+        orphans: { count: orphans.length, kb: realKB(orphanBytes) }
+      }
+    });
+  });
+
+  app.delete('/api/admin/cleanup-images', requireAdmin, async (c) => {
+    const orphans = await findOrphanImages();
+    let freed = 0;
+    for (const o of orphans) {
+      await q`DELETE FROM product_images WHERE id = ${o.id}`;
+      freed += Number(o.s) || 0;
+    }
+    return c.json({ ok: true, deleted: orphans.length, freedKB: Math.round(freed * 0.75 / 1024) });
   });
 
   // ---------- Admin: products ----------

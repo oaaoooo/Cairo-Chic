@@ -43,6 +43,7 @@ tr:hover td { background: #fafafa; }
 .prod-item .grow { flex: 1; }
 .badge-off { background: #eee; color: #888; font-size: 12px; padding: 2px 10px; border-radius: 12px; font-weight: 800; }
 .table-wrap { overflow-x: auto; }
+.btn-mini:disabled { opacity: .4; cursor: default; }
 .table-wrap input, .table-wrap select { font-family: inherit; padding: 7px 9px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
 .rev-card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
 .rev-card .stars { color: #f5a623; font-size: 18px; }
@@ -90,6 +91,7 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
     <button class="tab" data-tab="govs">🗺️ المحافظات والشحن</button>
     <button class="tab" data-tab="coupons">🎟️ الكوبونات</button>
     <button class="tab" data-tab="reviews">⭐ التقييمات</button>
+    <button class="tab" data-tab="cleanup">🧹 التنظيف</button>
     <button class="tab" data-tab="settings">⚙️ الإعدادات</button>
   </div>
 
@@ -98,11 +100,17 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
     <div class="filter-row">
       <label>فلتر: <select id="statusFilter"><option value="">كل الطلبات</option></select></label>
       <button class="btn-mini btn-edit" id="refreshOrders">🔄 تحديث</button>
+      <button class="btn-mini btn-del" id="delSelectedBtn">🗑 حذف المحدد (<span id="selCount">0</span>)</button>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>رقم الطلب</th><th>التاريخ</th><th>العميل</th><th>الطلب</th><th>الإجمالي</th><th>العنوان</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+      <thead><tr><th><input type="checkbox" id="selAll" title="تحديد الكل"></th><th>رقم الطلب</th><th>التاريخ</th><th>العميل</th><th>الطلب</th><th>الإجمالي</th><th>العنوان</th><th>الحالة</th><th>إجراءات</th></tr></thead>
       <tbody id="ordersBody"></tbody>
     </table></div>
+    <div class="filter-row" style="margin-top:12px">
+      <button class="btn-mini btn-edit" id="pagePrev">→ السابق</button>
+      <span class="hint" id="pageInfo">صفحة 1 من 1</span>
+      <button class="btn-mini btn-edit" id="pageNext">التالي ←</button>
+    </div>
   </div>
 
   <!-- PRODUCTS -->
@@ -182,6 +190,24 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
       <button class="btn-mini btn-edit" id="refreshReviews">🔄 تحديث</button>
     </div>
     <div id="reviewsList"></div>
+  </div>
+
+  <!-- CLEANUP -->
+  <div id="tab-cleanup" style="display:none">
+    <div class="panel-box">
+      <h3>🧹 تنظيف المخزن</h3>
+      <p class="hint">الصور اليتيمة = صور اترفعت ومش مستخدمة في أي منتج (مثلاً من منتجات اتمسحت). مسحها آمن 100% وبيفضي مساحة.</p>
+      <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><b id="stProducts">0</b><span>منتجات</span></div>
+        <div class="stat"><b id="stOrders">0</b><span>طلبات</span></div>
+        <div class="stat"><b id="stImages">0</b><span>صور المنتجات</span></div>
+        <div class="stat"><b id="stSiteImages">0</b><span>صور الموقع (لوجو)</span></div>
+        <div class="stat"><b id="stReviews">0</b><span>تقييمات</span></div>
+        <div class="stat"><b id="stOrphans">—</b><span>صور يتيمة 🗑</span></div>
+      </div>
+      <button class="btn btn-primary" id="cleanupBtn" style="padding:12px 40px">امسح الصور اليتيمة 🧹</button>
+      <div class="form-error" id="cleanupMsg" style="margin-top:8px"></div>
+    </div>
   </div>
 
   <!-- SETTINGS -->

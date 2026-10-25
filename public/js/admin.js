@@ -64,19 +64,26 @@ function showPanel() {
   loadCoupons();
   loadReviews();
   loadRevCount();
+  loadStorage();
   loadSettings();
 }
 
 function bindPanel() {
-  const tabs = ['orders', 'products', 'govs', 'coupons', 'reviews', 'settings'];
+  const tabs = ['orders', 'products', 'govs', 'coupons', 'reviews', 'cleanup', 'settings'];
   document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
     tabs.forEach(n => $('tab-' + n).style.display = n === t.dataset.tab ? '' : 'none');
   });
   $('logoutBtn').onclick = async () => { await api('/api/admin/logout', 'POST'); location.reload(); };
-  $('refreshOrders').onclick = loadOrders;
-  $('statusFilter').onchange = loadOrders;
+  $('refreshOrders').onclick = () => loadOrders(orderPage);
+  $('statusFilter').onchange = () => loadOrders(1);
+  $('delSelectedBtn').onclick = delSelected;
+  $('pagePrev').onclick = () => loadOrders(orderPage - 1);
+  $('pageNext').onclick = () => loadOrders(orderPage + 1);
+  $('selAll').onchange = () => { document.querySelectorAll('.o-sel').forEach(x => x.checked = $('selAll').checked); updateSelCount(); };
+  $('ordersBody').onchange = (e) => { if (e.target.classList && e.target.classList.contains('o-sel')) updateSelCount(); };
+  $('cleanupBtn').onclick = runCleanup;
   $('addColorBtn').onclick = () => addColorRow();
   $('saveProdBtn').onclick = saveProduct;
   $('cancelEditBtn').onclick = resetProdForm;
@@ -142,15 +149,24 @@ async function loadStats() {
   }
 }
 
-async function loadOrders() {
+let orderPage = 1, orderPages = 1;
+async function loadOrders(page = 1) {
+  orderPage = Math.max(1, page);
   const st = $('statusFilter').value;
-  const j = await api('/api/admin/orders' + (st ? '?status=' + st : ''));
+  const j = await api('/api/admin/orders?page=' + orderPage + (st ? '&status=' + st : ''));
   if (!j.ok) return;
+  if (!j.orders.length && orderPage > 1) return loadOrders(orderPage - 1);
   STATUS_AR = j.statusAr;
+  orderPage = j.page; orderPages = j.pages;
+  $('pageInfo').textContent = `صفحة ${j.page} من ${j.pages} (الإجمالي: ${j.total})`;
+  $('pagePrev').disabled = j.page <= 1;
+  $('pageNext').disabled = j.page >= j.pages;
+  $('selAll').checked = false;
+  updateSelCount();
   const tb = $('ordersBody');
   tb.innerHTML = '';
   if (!j.orders.length) {
-    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999">مفيش طلبات هنا لسه</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#999">مفيش طلبات هنا لسه</td></tr>';
     return;
   }
   j.orders.forEach(o => {
@@ -161,6 +177,7 @@ async function loadOrders() {
     const waText = encodeURIComponent(`أهلاً ${o.name}، معاك كايرو شيك 🦅 بخصوص طلبك رقم ${o.order_no} (${itemsTxt}) بإجمالي ${o.total} جنيه. نأكد الطلب؟`);
     const couponLine = o.coupon_code ? `<br><small>🎟 <b dir="ltr">${esc(o.coupon_code)}</b> (خصم ${o.discount})</small>` : '';
     tr.innerHTML = `
+      <td><input type="checkbox" class="o-sel" data-id="${o.id}"></td>
       <td><b dir="ltr">${o.order_no}</b></td>
       <td style="white-space:nowrap">${(o.created_at || '').slice(0, 16).replace('T', ' ')}</td>
       <td><b>${esc(o.name)}</b><br><a href="tel:${o.phone}" dir="ltr">${o.phone}</a></td>
@@ -183,8 +200,46 @@ async function loadOrders() {
   tb.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('تحذف الطلب ده نهائياً؟')) return;
     await api('/api/admin/orders/' + b.dataset.del, 'DELETE');
-    loadOrders(); loadStats();
+    loadOrders(orderPage); loadStats();
   });
+}
+
+async function delSelected() {
+  const ids = [...document.querySelectorAll('.o-sel:checked')].map(x => Number(x.dataset.id));
+  if (!ids.length) { alert('حدد طلب واحد على الأقل الأول ✅'); return; }
+  if (!confirm(`تحذف ${ids.length} طلب نهائياً؟`)) return;
+  const j = await api('/api/admin/orders', 'DELETE', { ids });
+  if (!j.ok) { alert(j.error || 'خطأ'); return; }
+  loadOrders(orderPage); loadStats();
+}
+
+function updateSelCount() {
+  $('selCount').textContent = document.querySelectorAll('.o-sel:checked').length;
+}
+
+// ---------- Storage & cleanup ----------
+async function loadStorage() {
+  const j = await api('/api/admin/storage');
+  if (!j.ok) return;
+  const s = j.stats;
+  $('stProducts').textContent = s.products;
+  $('stOrders').textContent = s.orders;
+  $('stImages').textContent = `${s.images.count} (${s.images.kb} KB)`;
+  $('stSiteImages').textContent = `${s.siteImages.count} (${s.siteImages.kb} KB)`;
+  $('stReviews').textContent = s.reviews;
+  $('stOrphans').textContent = s.orphans.count ? `${s.orphans.count} صورة (~${s.orphans.kb} KB) 🗑` : 'مفيش — كله نضيف ✨';
+  $('cleanupBtn').disabled = !s.orphans.count;
+  $('cleanupMsg').textContent = '';
+  $('cleanupMsg').style.color = '';
+}
+
+async function runCleanup() {
+  if (!confirm('تمسح الصور اليتيمة (غير مستخدمة في أي منتج) نهائياً؟')) return;
+  const j = await api('/api/admin/cleanup-images', 'DELETE');
+  if (!j.ok) { alert(j.error || 'خطأ'); return; }
+  $('cleanupMsg').textContent = `تم مسح ${j.deleted} صورة وتوفير ~${j.freedKB} KB ✅`;
+  $('cleanupMsg').style.color = '#0d9b4d';
+  loadStorage();
 }
 
 function esc(s) {
