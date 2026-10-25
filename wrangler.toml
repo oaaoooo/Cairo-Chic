@@ -1,0 +1,9 @@
+# Cloudflare Workers config — deploy via dashboard: Workers & Pages → Connect to Git
+name = "cairo-chic"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Static storefront (HTML/CSS/JS/images) served free & unlimited from CDN
+[assets]
+directory = "./public"
+not_found_handling = "none"

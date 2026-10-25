@@ -114,6 +114,23 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Downscale huge phone photos in the browser before upload (max 1200px, JPEG)
+function resizeImage(file) {
+  return new Promise((resolve) => {
+    try {
+      createImageBitmap(file).then((bmp) => {
+        const max = 1200;
+        const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(bmp.width * scale));
+        cv.height = Math.max(1, Math.round(bmp.height * scale));
+        cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+        cv.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.82);
+      }).catch(() => resolve(file));
+    } catch { resolve(file); }
+  });
+}
+
 // ---------- Products ----------
 function addColorRow(name = '', image = '') {
   const div = document.createElement('div');
