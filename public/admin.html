@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة التحكم | كايرو شيك</title>
+<link rel="icon" href="/images/logo.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+.admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+.login-card { max-width: 400px; margin: 80px auto; background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 4px 24px rgba(0,0,0,.1); text-align: center; }
+.login-card input { width: 100%; padding: 13px; border: 2px solid #ddd; border-radius: 10px; font-family: inherit; font-size: 16px; margin: 12px 0; }
+.tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+.tab { border: none; background: #e9e9ee; padding: 10px 22px; border-radius: 10px; font-family: inherit; font-weight: 800; cursor: pointer; font-size: 15px; }
+.tab.active { background: var(--dark); color: #fff; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat { background: #fff; border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.stat b { font-size: 26px; display: block; }
+.stat span { color: var(--muted); font-size: 13px; font-weight: 700; }
+table { width: 100%; background: #fff; border-radius: 12px; overflow: hidden; border-collapse: collapse; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+th, td { padding: 10px 8px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top; }
+th { background: var(--dark); color: #fff; font-size: 13px; }
+tr:hover td { background: #fafafa; }
+.status-select { font-family: inherit; font-weight: 700; padding: 6px; border-radius: 8px; border: 2px solid #ddd; font-size: 13px; }
+.btn-mini { border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 13px; margin: 2px; }
+.btn-del { background: #fde8e9; color: var(--red); }
+.btn-edit { background: #e8f0fe; color: #1a56db; }
+.btn-wa { background: #e6f9ee; color: #0d9b4d; text-decoration: none; display: inline-block; }
+.filter-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.filter-row select, .panel-box input, .panel-box select, .panel-box textarea { font-family: inherit; padding: 10px 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 15px; }
+.panel-box { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.panel-box h3 { margin-bottom: 12px; }
+.panel-box label { display: block; font-weight: 800; margin-bottom: 12px; font-size: 14px; }
+.panel-box input, .panel-box textarea, .panel-box select { width: 100%; margin-top: 4px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.color-row { display: grid; grid-template-columns: 1fr 2fr auto auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+.color-row img { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; }
+.prod-item { display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.prod-item img { width: 64px; height: 80px; object-fit: cover; border-radius: 8px; }
+.prod-item .grow { flex: 1; }
+.badge-off { background: #eee; color: #888; font-size: 12px; padding: 2px 10px; border-radius: 12px; font-weight: 800; }
+.table-wrap { overflow-x: auto; }
+@media (max-width: 700px) { .stats { grid-template-columns: repeat(2, 1fr); } .grid2 { grid-template-columns: 1fr; } .color-row { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body style="padding-bottom:20px">
+
+<div class="admin-wrap" id="loginView">
+  <div class="login-card">
+    <img src="/images/logo.jpg" class="logo" style="width:70px;height:70px" alt="">
+    <h2>لوحة تحكم كايرو شيك 🦅</h2>
+    <input type="password" id="adminPass" placeholder="الباسورد">
+    <div class="form-error" id="loginError"></div>
+    <button class="btn btn-primary btn-big" id="loginBtn">دخول</button>
+    <p class="muted" style="font-size:12px;margin-top:8px">أول مرة؟ الباسورد الافتراضي: admin123 (غيّره من الإعدادات)</p>
+  </div>
+</div>
+
+<div class="admin-wrap" id="panelView" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <h2>🦅 لوحة تحكم كايرو شيك</h2>
+    <div>
+      <a href="/" target="_blank" class="btn btn-ghost btn-mini" style="text-decoration:none">👁 عرض المتجر</a>
+      <button class="btn-mini btn-del" id="logoutBtn">خروج</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="stToday">0</b><span>طلبات النهاردة</span></div>
+    <div class="stat"><b id="stNew">0</b><span>طلبات جديدة 🆕</span></div>
+    <div class="stat"><b id="stTotal">0</b><span>إجمالي الطلبات</span></div>
+    <div class="stat"><b><span id="stRevenue">0</span> ج</b><span>إجمالي المبيعات (غير الملغي)</span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="orders">📋 الطلبات</button>
+    <button class="tab" data-tab="products">👕 المنتجات</button>
+    <button class="tab" data-tab="settings">⚙️ الإعدادات</button>
+  </div>
+
+  <!-- ORDERS -->
+  <div id="tab-orders">
+    <div class="filter-row">
+      <label>فلتر: <select id="statusFilter"><option value="">كل الطلبات</option></select></label>
+      <button class="btn-mini btn-edit" id="refreshOrders">🔄 تحديث</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>رقم الطلب</th><th>التاريخ</th><th>العميل</th><th>الطلب</th><th>الإجمالي</th><th>العنوان</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+      <tbody id="ordersBody"></tbody>
+    </table></div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div id="tab-products" style="display:none">
+    <div class="panel-box">
+      <h3 id="prodFormTitle">➕ إضافة منتج جديد</h3>
+      <input type="hidden" id="pId">
+      <div class="grid2">
+        <label>اسم المنتج *<input id="pName" placeholder="مثال: ترنج V11 الشتوي"></label>
+        <label>الوصف<textarea id="pDesc" rows="2" placeholder="وصف مختصر للمنتج"></textarea></label>
+      </div>
+      <div class="grid2">
+        <label>السعر (جنيه) *<input id="pPrice" type="number" min="1" placeholder="599"></label>
+        <label>السعر قبل الخصم (اختياري)<input id="pOld" type="number" min="0" placeholder="850"></label>
+      </div>
+      <div class="grid2">
+        <label>المقاسات (افصل بفاصلة)<input id="pSizes" placeholder="M,L,XL,XXL"></label>
+        <label>المخزون<input id="pStock" type="number" min="0" value="100"></label>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pActive" checked style="width:auto"> منتج ظاهر في المتجر ✅</label>
+      <h3>🎨 الألوان والصور</h3>
+      <div id="colorRows"></div>
+      <button class="btn-mini btn-edit" id="addColorBtn" type="button">+ إضافة لون</button>
+      <div class="form-error" id="prodError"></div>
+      <button class="btn btn-primary" id="saveProdBtn" style="padding:12px 40px;margin-top:10px">حفظ المنتج 💾</button>
+      <button class="btn btn-ghost" id="cancelEditBtn" style="padding:12px 30px;margin-top:10px;display:none">إلغاء التعديل</button>
+    </div>
+    <h3>المنتجات الحالية</h3>
+    <div id="productsList"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" style="display:none">
+    <div class="panel-box">
+      <h3>🏪 بيانات المتجر</h3>
+      <div class="grid2">
+        <label>اسم المتجر (عربي)<input id="sNameAr"></label>
+        <label>اسم المتجر (إنجليزي)<input id="sNameEn"></label>
+      </div>
+      <label>شريط الإعلان أعلى الصفحة<input id="sAnnounce"></label>
+      <div class="grid2">
+        <label>رقم الواتساب (بالكود الدولي بدون +)<input id="sWhatsapp" placeholder="2010xxxxxxxx" dir="ltr"><small class="muted">مثال: 201012345678 — بيظهر زرار واتساب للعملاء</small></label>
+        <label>TikTok Pixel ID<input id="sPixel" placeholder="مثال: D0XXXXXXXXXXXXXX" dir="ltr"><small class="muted">مهم جداً للإعلان الممول — هاته من TikTok Events Manager</small></label>
+      </div>
+      <div class="grid2">
+        <label>شحن القاهرة/الجيزة/الأسكندرية/القليوبية (جنيه)<input id="sShipCities" type="number" min="0"></label>
+        <label>شحن باقي المحافظات (جنيه)<input id="sShipOthers" type="number" min="0"></label>
+      </div>
+      <div class="form-error" id="setError"></div>
+      <button class="btn btn-primary" id="saveSettingsBtn" style="padding:12px 40px">حفظ الإعدادات 💾</button>
+    </div>
+    <div class="panel-box">
+      <h3>🔑 تغيير باسورد اللوحة</h3>
+      <div class="grid2">
+        <label>الباسورد الحالي<input id="pwCur" type="password"></label>
+        <label>الباسورد الجديد<input id="pwNew" type="password"></label>
+      </div>
+      <div class="form-error" id="pwError"></div>
+      <button class="btn btn-primary" id="changePwBtn" style="padding:12px 40px">تغيير الباسورد</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>
