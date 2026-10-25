@@ -2,6 +2,20 @@
 const $ = (id) => document.getElementById(id);
 let STATUS_AR = {};
 let revFilter = 'pending';
+let ORDERS_CACHE = [], ADMIN_PRODUCTS = [];
+
+// Cairo time, 12-hour format: 25/10/2026 + 6:40 م
+function fmtDT(iso) {
+  try {
+    const d = new Date(iso);
+    const p = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Africa/Cairo', day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    }).formatToParts(d).reduce((a, x) => (a[x.type] = x.value, a), {});
+    const ap = String(p.dayPeriod || '').toUpperCase() === 'PM' ? 'م' : 'ص';
+    return `${p.day}/${p.month}/${p.year}<br><b>${Number(p.hour)}:${p.minute} ${ap}</b>`;
+  } catch { return esc((iso || '').slice(0, 16)); }
+}
 
 const DEF_FEATURES = [
   { i: '🧥', t: 'خامة ميلتون تقيلة', d: 'بطانة داخلية ناعمة تدفيك في عز البرد ومبتوبرش' },
@@ -84,6 +98,8 @@ function bindPanel() {
   $('selAll').onchange = () => { document.querySelectorAll('.o-sel').forEach(x => x.checked = $('selAll').checked); updateSelCount(); };
   $('ordersBody').onchange = (e) => { if (e.target.classList && e.target.classList.contains('o-sel')) updateSelCount(); };
   $('cleanupBtn').onclick = runCleanup;
+  $('modalClose').onclick = () => $('orderModal').classList.remove('show');
+  $('orderModal').onclick = (e) => { if (e.target.id === 'orderModal') $('orderModal').classList.remove('show'); };
   $('addColorBtn').onclick = () => addColorRow();
   $('saveProdBtn').onclick = saveProduct;
   $('cancelEditBtn').onclick = resetProdForm;
@@ -165,6 +181,7 @@ async function loadOrders(page = 1) {
   updateSelCount();
   const tb = $('ordersBody');
   tb.innerHTML = '';
+  ORDERS_CACHE = j.orders;
   if (!j.orders.length) {
     tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#999">مفيش طلبات هنا لسه</td></tr>';
     return;
@@ -179,15 +196,16 @@ async function loadOrders(page = 1) {
     tr.innerHTML = `
       <td><input type="checkbox" class="o-sel" data-id="${o.id}"></td>
       <td><b dir="ltr">${o.order_no}</b></td>
-      <td style="white-space:nowrap">${(o.created_at || '').slice(0, 16).replace('T', ' ')}</td>
+      <td style="white-space:nowrap">${fmtDT(o.created_at)}</td>
       <td><b>${esc(o.name)}</b><br><a href="tel:${o.phone}" dir="ltr">${o.phone}</a></td>
       <td>${itemsHtml}</td>
       <td><b>${o.total} ج</b><br><small class="muted">شحن: ${o.shipping}</small>${couponLine}</td>
-      <td>${esc(o.governorate)}<br><small>${esc(o.address)}</small>${o.notes ? `<br><small>📝 ${esc(o.notes)}</small>` : ''}</td>
+      <td>${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}<br><small>${esc(o.address)}</small>${o.notes ? `<br><small>📝 ${esc(o.notes)}</small>` : ''}</td>
       <td><select class="status-select" data-id="${o.id}">
         ${Object.entries(STATUS_AR).map(([k, v]) => `<option value="${k}" ${k === o.status ? 'selected' : ''}>${v}</option>`).join('')}
       </select></td>
       <td style="white-space:nowrap">
+        <button class="btn-mini btn-edit" data-view="${o.id}">👁 عرض</button>
         <a class="btn-mini btn-wa" target="_blank" href="https://wa.me/2${o.phone}?text=${waText}">واتساب 💬</a>
         <button class="btn-mini btn-del" data-del="${o.id}">حذف</button>
       </td>`;
@@ -197,11 +215,46 @@ async function loadOrders(page = 1) {
     await api('/api/admin/orders/' + s.dataset.id, 'PATCH', { status: s.value });
     loadStats();
   });
+  tb.querySelectorAll('[data-view]').forEach(b => b.onclick = () => openOrder(Number(b.dataset.view)));
   tb.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('تحذف الطلب ده نهائياً؟')) return;
     await api('/api/admin/orders/' + b.dataset.del, 'DELETE');
     loadOrders(orderPage); loadStats();
   });
+}
+
+function prodImage(pid, color) {
+  const p = ADMIN_PRODUCTS.find(x => x.id === pid);
+  if (!p || !p.colors || !p.colors.length) return '/images/logo.jpg';
+  const c = p.colors.find(c => c.name === color) || p.colors[0];
+  return (c && c.image) || '/images/logo.jpg';
+}
+
+function openOrder(id) {
+  const o = ORDERS_CACHE.find(x => x.id === id);
+  if (!o) return;
+  $('mOrderNo').textContent = o.order_no;
+  const items = (o.items && o.items.length ? o.items : [{ pid: o.product_id, name: o.product_name, color: o.color, size: o.size, qty: o.qty, unit: o.unit_price }]);
+  const itemsHtml = items.map(l => `
+    <div class="d-item">
+      <img src="${prodImage(l.pid, l.color)}" alt="">
+      <div class="grow"><b>${esc(l.name)}</b><br><small>🎨 ${esc(l.color)} | 📏 ${esc(l.size)} | × ${l.qty}</small></div>
+      <b>${(Number(l.unit) || 0) * l.qty} ج</b>
+    </div>`).join('');
+  $('modalBody').innerHTML = `
+    <div class="d-row"><b>📅 التاريخ</b><span style="text-align:left">${fmtDT(o.created_at)}</span></div>
+    <div class="d-row"><b>📌 الحالة</b><span>${esc(STATUS_AR[o.status] || o.status)}</span></div>
+    <div class="d-row"><b>👤 العميل</b><span>${esc(o.name)}</span></div>
+    <div class="d-row"><b>📞 الموبايل</b><span><a href="tel:${o.phone}" dir="ltr">${o.phone}</a></span></div>
+    <div class="d-row"><b>📍 المحافظة</b><span>${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}</span></div>
+    <div class="d-row"><b>🏠 العنوان</b><span>${esc(o.address)}</span></div>
+    ${o.notes ? `<div class="d-row"><b>📝 ملاحظات</b><span>${esc(o.notes)}</span></div>` : ''}
+    <h4 style="margin:12px 0 4px">🛍 المنتجات (${items.reduce((a, l) => a + (Number(l.qty) || 0), 0)} قطع)</h4>
+    ${itemsHtml}
+    <div class="d-row"><b>🚚 الشحن</b><span>${o.shipping} ج</span></div>
+    ${o.coupon_code ? `<div class="d-row"><b>🎟 الكوبون</b><span><b dir="ltr">${esc(o.coupon_code)}</b> (خصم ${o.discount} ج)</span></div>` : ''}
+    <div class="d-row" style="font-size:16px;border:none"><b>💰 الإجمالي</b><span><b>${o.total} جنيه</b></span></div>`;
+  $('orderModal').classList.add('show');
 }
 
 async function delSelected() {
@@ -293,6 +346,7 @@ function resetProdForm() {
   $('pName').value = ''; $('pDesc').value = ''; $('pPrice').value = '';
   $('pOld').value = ''; $('pSizes').value = ''; $('pStock').value = '100';
   $('pActive').checked = true;
+  $('pFeatured').checked = false;
   $('colorRows').innerHTML = '';
   addColorRow();
   $('prodFormTitle').textContent = '➕ إضافة منتج جديد';
@@ -313,6 +367,7 @@ async function saveProduct() {
     sizes: $('pSizes').value.split(',').map(s => s.trim()).filter(Boolean),
     stock: Number($('pStock').value || 0),
     active: $('pActive').checked,
+    featured: $('pFeatured').checked,
     colors
   };
   const id = $('pId').value;
@@ -326,6 +381,7 @@ async function saveProduct() {
 async function loadProducts() {
   const j = await api('/api/admin/products');
   if (!j.ok) return;
+  ADMIN_PRODUCTS = j.products;
   const list = $('productsList');
   list.innerHTML = '';
   j.products.forEach(p => {
@@ -334,9 +390,10 @@ async function loadProducts() {
     div.className = 'prod-item';
     div.innerHTML = `
       <img src="${img}">
-      <div class="grow"><b>${esc(p.name)}</b> ${p.active ? '' : '<span class="badge-off">مخفي</span>'}
+      <div class="grow"><b>${esc(p.name)}</b> ${p.featured ? '<span class="badge-feat">⭐ مميز</span>' : ''} ${p.active ? '' : '<span class="badge-off">مخفي</span>'}
         <div class="muted" style="font-size:13px">${p.price} ج ${p.old_price > p.price ? `(قبل: ${p.old_price})` : ''} | 🎨 ${p.colors.length} ألوان | 📏 ${p.sizes.join('، ')}</div>
       </div>
+      <button class="btn-mini btn-ok f-feat" title="منتج مميز (يظهر أول واحد)">⭐</button>
       <button class="btn-mini btn-edit">تعديل ✏️</button>
       <button class="btn-mini btn-del">حذف 🗑</button>`;
     div.querySelector('.btn-edit').onclick = () => {
@@ -344,13 +401,20 @@ async function loadProducts() {
       $('pName').value = p.name; $('pDesc').value = p.description || '';
       $('pPrice').value = p.price; $('pOld').value = p.old_price || '';
       $('pSizes').value = p.sizes.join(',');
-      $('pStock').value = p.stock; $('pActive').checked = !!p.active;
+      $('pStock').value = p.stock; $('pActive').checked = !!p.active; $('pFeatured').checked = !!p.featured;
       $('colorRows').innerHTML = '';
       p.colors.forEach(c => addColorRow(c.name, c.image));
       if (!p.colors.length) addColorRow();
       $('prodFormTitle').textContent = '✏️ تعديل: ' + p.name;
       $('cancelEditBtn').style.display = '';
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    div.querySelector('.f-feat').onclick = async () => {
+      await api('/api/admin/products/' + p.id, 'PUT', {
+        name: p.name, description: p.description || '', price: p.price, old_price: p.old_price || 0,
+        sizes: p.sizes, stock: p.stock, active: !!p.active, featured: !p.featured, colors: p.colors
+      });
+      loadProducts();
     };
     div.querySelector('.btn-del').onclick = async () => {
       if (!confirm(`تحذف "${p.name}" نهائياً؟`)) return;
@@ -483,7 +547,7 @@ async function loadReviews() {
     div.innerHTML = `
       <div class="stars">${starStr(r.rating)}</div>
       <p>"${esc(r.comment)}"</p>
-      <div class="meta">— ${esc(r.name)} | 🛍 ${esc(r.product_name || 'منتج محذوف')} | ${(r.created_at || '').slice(0, 16).replace('T', ' ')}</div>
+      <div class="meta">— ${esc(r.name)} | 🛍 ${esc(r.product_name || 'منتج محذوف')} | ${fmtDT(r.created_at).replace('<br>', ' ')}</div>
       <div style="margin-top:8px">
         ${revFilter === 'pending' ? '<button class="btn-mini btn-ok r-ok">نشر ✅</button>' : '<button class="btn-mini btn-edit r-hide">إخفاء 🙈</button>'}
         <button class="btn-mini btn-del r-del">حذف 🗑</button>

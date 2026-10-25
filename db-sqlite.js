@@ -13,7 +13,7 @@ export const DDL_SQLITE = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL, price REAL NOT NULL, old_price REAL DEFAULT 0,
     description TEXT DEFAULT '', colors TEXT DEFAULT '[]', sizes TEXT DEFAULT '[]',
-    stock INTEGER DEFAULT 100, active INTEGER DEFAULT 1,
+    stock INTEGER DEFAULT 100, active INTEGER DEFAULT 1, featured INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
   `CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,7 +22,7 @@ export const DDL_SQLITE = [
     unit_price REAL, shipping REAL, total REAL,
     coupon_code TEXT DEFAULT '', discount REAL DEFAULT 0,
     items TEXT DEFAULT '[]',
-    name TEXT, phone TEXT, governorate TEXT, address TEXT, notes TEXT DEFAULT '',
+    name TEXT, phone TEXT, governorate TEXT, area TEXT DEFAULT '', address TEXT, notes TEXT DEFAULT '',
     status TEXT DEFAULT 'new',
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
   `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT DEFAULT '')`,
@@ -73,6 +73,11 @@ export function createSqliteDb() {
     if (!cols.includes('coupon_code')) db.exec(`ALTER TABLE orders ADD COLUMN coupon_code TEXT DEFAULT ''`);
     if (!cols.includes('discount')) db.exec(`ALTER TABLE orders ADD COLUMN discount REAL DEFAULT 0`);
     if (!cols.includes('items')) db.exec(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`);
+    const pcols = db.prepare('PRAGMA table_info(products)').all().map(c => c.name);
+    if (!pcols.includes('featured')) db.exec(`ALTER TABLE products ADD COLUMN featured INTEGER DEFAULT 0`);
+    if (!cols.includes('area')) db.exec(`ALTER TABLE orders ADD COLUMN area TEXT DEFAULT ''`);
+    // no delivery to Sinai — drop from existing DBs (no Sinai orders exist)
+    db.prepare(`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`).run();
     // ---- seed governorates once (from current shipping settings) ----
     const n = db.prepare('SELECT COUNT(*) c FROM governorates').get().c;
     if (!n) {

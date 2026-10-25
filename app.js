@@ -4,7 +4,7 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import {
-  GOVERNORATES, CITY_GOVS, ORDER_STATUSES, STATUS_AR,
+  GOVERNORATES, CITY_GOVS, ORDER_STATUSES, STATUS_AR, AREAS,
   parseProduct, normalizePhone, cairoDayRange, validateProductBody,
   hashPassword, verifyPassword, signToken, verifyToken,
   bytesToBase64, base64ToBytes, calcDiscount, validateCouponBody, validateReviewBody
@@ -55,7 +55,7 @@ export async function createApp({ q, sessionSecret }) {
       store_name_ar: 'كايرو شيك', store_name_en: 'CAIRO CHIC',
       whatsapp: '', tiktok_pixel: '',
       shipping_cities: '50', shipping_others: '70',
-      announcement: '🚚 شحن سريع لكل محافظات مصر — الدفع عند الاستلام 💵',
+      announcement: '🚚 شحن سريع لكل محافظات مصر (ماعدا سيناء) — الدفع عند الاستلام 💵',
       admin_password: await hashPassword('admin123', sessionSecret), seeded: '1'
     };
     for (const [k, v] of Object.entries(defaults)) await setSetting(k, v);
@@ -133,6 +133,7 @@ export async function createApp({ q, sessionSecret }) {
     const out = {
       ok: true,
       governorates: govs.map(g => ({ name: g.name, shipping: Number(g.shipping) })),
+      areas: AREAS,
       city_govs: CITY_GOVS,
       shipping_cities: Number(s.shipping_cities || 50),
       shipping_others: Number(s.shipping_others || 70)
@@ -142,7 +143,7 @@ export async function createApp({ q, sessionSecret }) {
   });
 
   app.get('/api/products', async (c) => {
-    const { rows } = await q`SELECT * FROM products WHERE active = 1 ORDER BY id`;
+    const { rows } = await q`SELECT * FROM products WHERE active = 1 ORDER BY featured DESC, id`;
     return c.json({ ok: true, products: rows.map(parseProduct) });
   });
 
@@ -204,8 +205,9 @@ export async function createApp({ q, sessionSecret }) {
   app.post('/api/order', limit('order', 10), async (c) => {
     try {
       const b = await c.req.json().catch(() => ({}));
-      let { name, phone, governorate, address, notes } = b;
+      let { name, phone, governorate, area, address, notes } = b;
       name = String(name || '').trim();
+      area = String(area || '').trim();
       address = String(address || '').trim();
       notes = String(notes || '').trim();
       phone = normalizePhone(phone);
@@ -216,6 +218,9 @@ export async function createApp({ q, sessionSecret }) {
 
       const gr = await q`SELECT shipping FROM governorates WHERE name = ${governorate}`;
       if (!gr.rows.length) return c.json({ ok: false, error: 'اختار المحافظة' });
+      const areas = AREAS[governorate];
+      if (areas ? !areas.includes(area) : area.length < 2)
+        return c.json({ ok: false, error: 'اختار المركز / المنطقة' });
 
       // normalize items (support legacy single-product payload)
       let rawItems = [];
@@ -267,10 +272,10 @@ export async function createApp({ q, sessionSecret }) {
 
       const ins = await q`INSERT INTO orders
         (product_id, product_name, color, size, qty, unit_price, shipping, total, coupon_code, discount, items,
-         name, phone, governorate, address, notes)
+         name, phone, governorate, area, address, notes)
         VALUES (${first.pid},${first.name},${first.color},${first.size},${first.qty},${first.unit},
           ${shipping},${total},${couponCode},${discount},${JSON.stringify(lines)},
-          ${name},${phone},${governorate},${address},${notes})
+          ${name},${phone},${governorate},${area},${address},${notes})
         RETURNING id`;
       const id = ins.rows[0].id;
       const order_no = 'CC-' + (100000 + Number(id));
@@ -281,6 +286,37 @@ export async function createApp({ q, sessionSecret }) {
       console.error('order error', e);
       return c.json({ ok: false, error: 'حصل خطأ، حاول تاني' }, 500);
     }
+  });
+
+  // ---------- Public: order tracking ----------
+  const TRACK_STEPS = [
+    { k: 'new', t: '📝 طلبك اتسجل' },
+    { k: 'confirmed', t: '✅ أكدنا طلبك' },
+    { k: 'preparing', t: '📦 بنجهز طلبك' },
+    { k: 'shipped', t: '🚚 طلبك في الطريق' },
+    { k: 'delivered', t: '✔ طلبك وصل' }
+  ];
+  app.get('/api/track', limit('track', 20), async (c) => {
+    const order_no = String(c.req.query('order_no') || '').trim().toUpperCase();
+    const phone = normalizePhone(c.req.query('phone'));
+    if (!order_no || !phone) return c.json({ ok: false, error: 'اكتب رقم الطلب ورقم الموبايل' });
+    const { rows } = await q`SELECT order_no, status, name, governorate, area, total, items, created_at
+      FROM orders WHERE order_no = ${order_no} AND phone = ${phone}`;
+    if (!rows.length) return c.json({ ok: false, error: 'مفيش طلب بالبيانات دي — تأكد من رقم الطلب ورقم الموبايل' });
+    const o = rows[0];
+    let items = [];
+    try { items = JSON.parse(o.items || '[]'); } catch { items = []; }
+    const idx = TRACK_STEPS.findIndex(s => s.k === o.status);
+    return c.json({
+      ok: true,
+      order: {
+        order_no: o.order_no, status: o.status, statusAr: STATUS_AR[o.status] || o.status,
+        name: o.name, governorate: o.governorate, area: o.area || '',
+        total: Number(o.total), created_at: o.created_at,
+        items: items.map(l => ({ name: l.name, color: l.color, size: l.size, qty: l.qty })),
+        steps: TRACK_STEPS.map((s, i) => ({ t: s.t, done: idx >= 0 && i <= idx, now: i === idx }))
+      }
+    });
   });
 
   // ---------- Admin: auth ----------
@@ -427,8 +463,8 @@ export async function createApp({ q, sessionSecret }) {
     const v = validateProductBody(await c.req.json().catch(() => ({})));
     if (v.error) return c.json({ ok: false, error: v.error });
     const d = v.data;
-    await q`INSERT INTO products(name,price,old_price,description,colors,sizes,stock,active)
-      VALUES(${d.name},${d.price},${d.old_price},${d.description},${d.colors},${d.sizes},${d.stock},${d.active})`;
+    await q`INSERT INTO products(name,price,old_price,description,colors,sizes,stock,active,featured)
+      VALUES(${d.name},${d.price},${d.old_price},${d.description},${d.colors},${d.sizes},${d.stock},${d.active},${d.featured})`;
     return c.json({ ok: true });
   });
 
@@ -437,7 +473,7 @@ export async function createApp({ q, sessionSecret }) {
     if (v.error) return c.json({ ok: false, error: v.error });
     const d = v.data;
     await q`UPDATE products SET name=${d.name},price=${d.price},old_price=${d.old_price},
-      description=${d.description},colors=${d.colors},sizes=${d.sizes},stock=${d.stock},active=${d.active}
+      description=${d.description},colors=${d.colors},sizes=${d.sizes},stock=${d.stock},active=${d.active},featured=${d.featured}
       WHERE id=${c.req.param('id')}`;
     return c.json({ ok: true });
   });

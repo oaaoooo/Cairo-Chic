@@ -52,6 +52,16 @@ tr:hover td { background: #fafafa; }
 .logo-prev { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--orange); }
 .hint { font-size: 13px; color: var(--muted); font-weight: 600; }
 input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !important; cursor: pointer; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px; }
+.modal-overlay.show { display: flex; }
+.modal-box { background: #fff; border-radius: 16px; max-width: 560px; width: 100%; max-height: 88vh; overflow-y: auto; padding: 22px; }
+.modal-box h3 { margin-bottom: 10px; font-size: 18px; }
+.d-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
+.d-row > b:first-child { color: #888; white-space: nowrap; }
+.d-item { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; }
+.d-item img { width: 52px; height: 66px; object-fit: cover; border-radius: 8px; }
+.d-item .grow { flex: 1; font-size: 14px; }
+.badge-feat { background: #fff4e8; color: #e56a00; font-size: 12px; padding: 2px 10px; border-radius: 12px; font-weight: 800; }
 .code-in { text-transform: uppercase; }
 @media (max-width: 700px) { .stats { grid-template-columns: repeat(2, 1fr); } .grid2, .grid3 { grid-template-columns: 1fr; } .color-row { grid-template-columns: 1fr 1fr; } }
 </style>
@@ -131,6 +141,7 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
         <label>المخزون<input id="pStock" type="number" min="0" value="100"></label>
       </div>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pActive" checked style="width:auto"> منتج ظاهر في المتجر ✅</label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pFeatured" style="width:auto"> ⭐ منتج مميز (يظهر أول واحد في المتجر) 🔥</label>
       <h3>🎨 الألوان والصور</h3>
       <div id="colorRows"></div>
       <button class="btn-mini btn-edit" id="addColorBtn" type="button">+ إضافة لون</button>
@@ -153,6 +164,7 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
       </div>
       <div class="form-error" id="govError"></div>
       <p class="hint">💡 كل محافظة ليها سعر شحن خاص بيظهر للعميل في فورم الطلب. حذف محافظة مش بيأثر على الطلبات القديمة.</p>
+      <p class="hint">🚫 سيناء (شمال/جنوب) محذوفة تلقائياً — مش بنوصلها.</p>
     </div>
     <h3>المحافظات وأسعار الشحن (<span id="govCount">0</span>)</h3>
     <div class="table-wrap"><table>
@@ -317,6 +329,16 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
       <div class="form-error" id="pwError"></div>
       <button class="btn btn-primary" id="changePwBtn" style="padding:12px 40px">تغيير الباسورد</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="orderModal">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h3 style="margin:0">🧾 تفاصيل الطلب <span dir="ltr" id="mOrderNo"></span></h3>
+      <button class="btn-mini btn-del" id="modalClose">✕</button>
+    </div>
+    <div id="modalBody"></div>
   </div>
 </div>
 

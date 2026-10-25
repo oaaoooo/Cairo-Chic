@@ -19,7 +19,7 @@ export function createNeonDb(url) {
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL, price NUMERIC NOT NULL, old_price NUMERIC DEFAULT 0,
       description TEXT DEFAULT '', colors TEXT DEFAULT '[]', sizes TEXT DEFAULT '[]',
-      stock INTEGER DEFAULT 100, active INTEGER DEFAULT 1,
+      stock INTEGER DEFAULT 100, active INTEGER DEFAULT 1, featured INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW())`;
     await sql`CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
@@ -28,7 +28,7 @@ export function createNeonDb(url) {
       unit_price NUMERIC, shipping NUMERIC, total NUMERIC,
       coupon_code TEXT DEFAULT '', discount NUMERIC DEFAULT 0,
       items TEXT DEFAULT '[]',
-      name TEXT, phone TEXT, governorate TEXT, address TEXT, notes TEXT DEFAULT '',
+      name TEXT, phone TEXT, governorate TEXT, area TEXT DEFAULT '', address TEXT, notes TEXT DEFAULT '',
       status TEXT DEFAULT 'new',
       created_at TIMESTAMPTZ DEFAULT NOW())`;
     await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT DEFAULT '')`;
@@ -54,6 +54,9 @@ export function createNeonDb(url) {
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT DEFAULT ''`;
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount NUMERIC DEFAULT 0`;
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS items TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INTEGER DEFAULT 0`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS area TEXT DEFAULT ''`;
+    await sql`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`;
     // ---- seed governorates once (from current shipping settings, single query) ----
     const cnt = await sql`SELECT COUNT(*)::int c FROM governorates`;
     if (!cnt[0].c) {

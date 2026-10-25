@@ -54,7 +54,7 @@ async function init() {
     applyDeal();
     applyVisibility();
     buildGovSelect();
-    if (PRODUCTS.length) selectProduct(PRODUCTS[0].id);
+    if (PRODUCTS.length) { const feat = PRODUCTS.find(p => p.featured); selectProduct(feat ? feat.id : PRODUCTS[0].id); }
     if (PRODUCTS.length > 1) renderMoreProducts();
     $('featuresTitle').textContent = SETTINGS.features_title || DEF_TITLES.featuresTitle;
     $('reviewsTitle').textContent = SETTINGS.reviews_title || DEF_TITLES.reviewsTitle;
@@ -168,6 +168,7 @@ function selectProduct(id) {
 
 function renderProduct() {
   const p = CURRENT;
+  $('featBadge').style.display = p.featured ? '' : 'none';
   $('productName').textContent = p.name + ' 🔥';
   $('productDesc').textContent = p.description || '';
   $('priceNow').textContent = p.price;
@@ -221,13 +222,13 @@ function renderMoreProducts() {
   const wrap = $('moreProducts'), grid = $('productsGrid');
   wrap.style.display = '';
   grid.innerHTML = '';
-  PRODUCTS.filter(p => p.id !== CURRENT.id).forEach(p => {
+  PRODUCTS.filter(p => p.id !== CURRENT.id).sort((a, b) => (b.featured || 0) - (a.featured || 0)).forEach(p => {
     const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
     const old = Number(p.old_price) || 0;
     const card = document.createElement('div');
     card.className = 'pcard';
     card.innerHTML = `
-      <img src="${img}" alt="${esc(p.name)}">
+      <div class="pcard-imgwrap"><img src="${img}" alt="${esc(p.name)}">${p.featured ? '<span class="pcard-feat">⭐ مميز</span>' : ''}</div>
       <div class="pbody"><b>${esc(p.name)}</b>
         <div class="prow">
           <div class="pprice">${p.price} ج ${old > p.price ? `<small>${old} ج</small>` : ''}</div>
@@ -380,7 +381,33 @@ function buildGovSelect() {
     o.textContent = `${g.name} (شحن ${g.shipping} ج)`;
     sel.appendChild(o);
   });
-  sel.onchange = updateSummary;
+  sel.onchange = buildAreas;
+}
+
+function areaValue() {
+  const useText = $('areaTextWrap').style.display !== 'none';
+  return useText ? $('areaText').value.trim() : $('areaSelect').value;
+}
+
+function buildAreas() {
+  updateSummary();
+  const gov = $('govSelect').value;
+  const areas = (SETTINGS.areas && SETTINGS.areas[gov]) || null;
+  const selWrap = $('areaSelectWrap'), txtWrap = $('areaTextWrap');
+  if (areas && areas.length) {
+    selWrap.style.display = '';
+    txtWrap.style.display = 'none';
+    const sel = $('areaSelect');
+    sel.innerHTML = '<option value="">— اختار المركز / المنطقة —</option>';
+    areas.forEach(a => {
+      const o = document.createElement('option');
+      o.value = a; o.textContent = a;
+      sel.appendChild(o);
+    });
+  } else {
+    selWrap.style.display = 'none';
+    txtWrap.style.display = '';
+  }
 }
 
 // ---------- Coupon ----------
@@ -509,7 +536,7 @@ async function submitReview() {
     const j = await r.json();
     if (!j.ok) { err.textContent = j.error || 'حصل خطأ'; return; }
     err.style.color = '#0d9b4d';
-    err.textContent = 'شكراً! تقييمك هيظهر بعد المراجعة 🙏';
+    err.textContent = 'شكراً يا بطل! تقييمك وصل وهيظهر قريب ⭐';
     $('revName').value = ''; $('revComment').value = '';
     myRating = 5; paintStars();
   } catch {
@@ -559,12 +586,20 @@ function bindUI() {
   $('cartContinue').onclick = closeCart;
   $('cartCheckout').addEventListener('click', closeCart);
   document.querySelectorAll('.faq-q').forEach(q => q.onclick = () => q.parentElement.classList.toggle('open'));
-  $('govSelect').addEventListener('change', updateSummary);
+  $('govSelect').addEventListener('change', buildAreas);
   $('couponBtn').onclick = applyCoupon;
   $('couponInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyCoupon(); } });
   $('orderForm').addEventListener('submit', submitOrder);
   document.querySelectorAll('#starsInput button').forEach(b => b.onclick = () => { myRating = Number(b.dataset.r); paintStars(); });
   $('revSubmit').onclick = submitReview;
+  $('trackBtn').onclick = doTrack;
+  $('trackPhone').addEventListener('input', () => {
+    $('trackPhone').value = normDigits($('trackPhone').value).replace(/\D/g, '').slice(0, 11);
+  });
+  $('trackOrderBtn').onclick = () => {
+    $('trackNo').value = $('okOrderNo').textContent.trim();
+    document.querySelector('#track').scrollIntoView({ behavior: 'smooth' });
+  };
   $('newOrderBtn').onclick = () => {
     $('orderSuccess').style.display = 'none';
     $('orderForm').style.display = '';
@@ -593,12 +628,14 @@ async function submitOrder(e) {
     name: fd.get('name').trim(),
     phone: normDigits(fd.get('phone')),
     governorate: fd.get('governorate'),
+    area: areaValue(),
     address: fd.get('address').trim(),
     notes: (fd.get('notes') || '').trim()
   };
   if (payload.name.length < 3) { err.textContent = 'اكتب الاسم بالكامل'; return; }
   if (!/^01[0125][0-9]{8}$/.test(payload.phone)) { err.textContent = 'رقم الموبايل غلط — لازم يبدأ بـ 01 و11 رقم'; return; }
   if (!payload.governorate) { err.textContent = 'اختار المحافظة'; return; }
+  if (!payload.area || payload.area.length < 2) { err.textContent = 'اختار المركز / المنطقة'; return; }
   if (payload.address.length < 5) { err.textContent = 'اكتب العنوان بالتفصيل'; return; }
 
   btn.disabled = true; btn.textContent = 'جاري تسجيل طلبك... ⏳';
@@ -628,6 +665,42 @@ async function submitOrder(e) {
   } catch {
     err.textContent = 'مشكلة في الاتصال، حاول تاني';
     btn.disabled = false; btn.textContent = 'تأكيد الطلب ✅';
+  }
+}
+
+// ---------- Order tracking ----------
+async function doTrack() {
+  const err = $('trackError'), box = $('trackResult');
+  err.textContent = '';
+  box.style.display = 'none';
+  box.innerHTML = '';
+  const order_no = $('trackNo').value.trim().toUpperCase();
+  const phone = normDigits($('trackPhone').value).replace(/\D/g, '');
+  if (!order_no || !phone) { err.textContent = 'اكتب رقم الطلب ورقم الموبايل'; return; }
+  err.textContent = 'جاري البحث... ⏳';
+  try {
+    const r = await fetch(`/api/track?order_no=${encodeURIComponent(order_no)}&phone=${encodeURIComponent(phone)}`);
+    const j = await r.json();
+    if (!j.ok) { err.textContent = j.error || 'حصل خطأ'; return; }
+    err.textContent = '';
+    const o = j.order;
+    if (o.status === 'cancelled') {
+      box.innerHTML = `<div class="track-card"><h3>طلبك رقم <b dir="ltr">${esc(o.order_no)}</b></h3>
+        <p style="font-size:18px;font-weight:800">❌ الطلب ده ملغي</p>
+        <p class="muted">لو شايف إن ده غلط كلمنا واتساب وهنساعدك 🙏</p></div>`;
+    } else {
+      const steps = o.steps.map(s => `<div class="tstep ${s.done ? 'done' : ''} ${s.now ? 'now' : ''}">${s.done ? '✅' : '⬜'} ${esc(s.t)}</div>`).join('');
+      const items = o.items.map(l => `<div class="sum-line">🧾 ${esc(l.name)} — 🎨 ${esc(l.color)} | 📏 ${esc(l.size)} | × ${l.qty}</div>`).join('');
+      box.innerHTML = `<div class="track-card"><h3>طلبك رقم <b dir="ltr">${esc(o.order_no)}</b></h3>
+        <div class="track-status">${esc(o.statusAr)}</div>
+        <div class="tsteps">${steps}</div>
+        ${items}
+        <div class="sum-line">📍 ${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}</div>
+        <div class="sum-total">الإجمالي: <b>${o.total} جنيه</b></div></div>`;
+    }
+    box.style.display = '';
+  } catch {
+    err.textContent = 'مشكلة في الاتصال، حاول تاني';
   }
 }
 
