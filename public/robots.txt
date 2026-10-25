@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /admin.html
 
-Sitemap: https://cairo-chic.style-elshare3.workers.dev/sitemap.xml
+Sitemap: https://cairo-chic.storecairochi.workers.dev/sitemap.xml
