@@ -7,10 +7,27 @@ import {
   GOVERNORATES, CITY_GOVS, ORDER_STATUSES, STATUS_AR,
   parseProduct, normalizePhone, cairoDayRange, validateProductBody,
   hashPassword, verifyPassword, signToken, verifyToken,
-  bytesToBase64, base64ToBytes
+  bytesToBase64, base64ToBytes, calcDiscount, validateCouponBody, validateReviewBody
 } from './lib.js';
 
-const SETTINGS_KEYS = ['store_name_ar', 'store_name_en', 'whatsapp', 'tiktok_pixel', 'shipping_cities', 'shipping_others', 'announcement'];
+// Editable settings (store data + page content + theme + deal + logo).
+// Shipping prices moved to the governorates table (per-governorate).
+const SETTINGS_KEYS = [
+  'store_name_ar', 'store_name_en', 'whatsapp', 'tiktok_pixel', 'announcement',
+  'features_title', 'reviews_title', 'how_title', 'faq_title', 'more_title',
+  'footer_text', 'stock_line', 'size_hint', 'cta_text',
+  'f1i', 'f1t', 'f1d', 'f2i', 'f2t', 'f2d', 'f3i', 'f3t', 'f3d', 'f4i', 'f4t', 'f4d',
+  't1i', 't1t', 't1d', 't2i', 't2t', 't2d', 't3i', 't3t', 't3d', 't4i', 't4t', 't4d',
+  'theme_primary', 'theme_dark',
+  'deal_enabled', 'deal_title', 'deal_sub', 'deal_ends_at',
+  'logo_url'
+];
+
+const DEFAULT_REVIEWS = [
+  { name: 'أحمد م. | القاهرة', rating: 5, comment: 'الخامة تقيلة فعلاً والتلبيس مظبوط، أحسن ترنج جبته الشتا ده.' },
+  { name: 'مصطفى س. | الجيزة', rating: 5, comment: 'طلبت الأسود، وصل في 3 أيام والتغليف كان محترم. شكراً كايرو شيك.' },
+  { name: 'كريم ع. | الأسكندرية', rating: 5, comment: 'المقاس طلع مظبوط واللون البيج شيك أوي على الطبيعة.' }
+];
 
 export async function createApp({ q, sessionSecret }) {
   const app = new Hono();
@@ -53,17 +70,32 @@ export async function createApp({ q, sessionSecret }) {
     console.log('✅ Database seeded (admin password: admin123)');
   }
 
-  // ---------- Rate limit (orders) ----------
-  const orderHits = new Map();
-  function orderRateLimit(c, next) {
-    const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'x';
-    const now = Date.now();
-    const rec = orderHits.get(ip) || { count: 0, reset: now + 3600e3 };
-    if (now > rec.reset) { rec.count = 0; rec.reset = now + 3600e3; }
-    rec.count++;
-    orderHits.set(ip, rec);
-    if (rec.count > 10) return c.json({ ok: false, error: 'محاولات كتير، جرب كمان شوية' }, 429);
-    return next();
+  // ---------- Seed default testimonials once (product 1) ----------
+  if (!(await getSetting('reviews_seeded'))) {
+    const has1 = await q`SELECT id FROM products WHERE id = 1`;
+    if (has1.rows.length) {
+      for (const r of DEFAULT_REVIEWS) {
+        await q`INSERT INTO reviews(product_id,name,rating,comment,approved)
+          VALUES(${'1'},${r.name},${r.rating},${r.comment},${1})`;
+      }
+    }
+    await setSetting('reviews_seeded', '1');
+  }
+
+  // ---------- Rate limits (in-memory, per isolate) ----------
+  const hits = new Map();
+  function limit(kind, max) {
+    return async (c, next) => {
+      const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'x';
+      const key = kind + ':' + ip;
+      const now = Date.now();
+      const rec = hits.get(key) || { count: 0, reset: now + 3600e3 };
+      if (now > rec.reset) { rec.count = 0; rec.reset = now + 3600e3; }
+      rec.count++;
+      hits.set(key, rec);
+      if (rec.count > max) return c.json({ ok: false, error: 'محاولات كتير، جرب كمان شوية' }, 429);
+      return next();
+    };
   }
 
   async function requireAdmin(c, next) {
@@ -79,14 +111,19 @@ export async function createApp({ q, sessionSecret }) {
 
   app.get('/api/settings-public', async (c) => {
     const s = await getSettings();
-    return c.json({
+    let govs = (await q`SELECT name, shipping FROM governorates ORDER BY sort`).rows;
+    if (!govs.length) {
+      govs = GOVERNORATES.map(g => ({ name: g, shipping: CITY_GOVS.includes(g) ? 50 : 70 }));
+    }
+    const out = {
       ok: true,
-      store_name_ar: s.store_name_ar || '', store_name_en: s.store_name_en || '',
-      whatsapp: s.whatsapp || '', tiktok_pixel: s.tiktok_pixel || '',
-      shipping_cities: Number(s.shipping_cities || 50), shipping_others: Number(s.shipping_others || 70),
-      announcement: s.announcement || '',
-      governorates: GOVERNORATES, city_govs: CITY_GOVS
-    });
+      governorates: govs.map(g => ({ name: g.name, shipping: Number(g.shipping) })),
+      city_govs: CITY_GOVS,
+      shipping_cities: Number(s.shipping_cities || 50),
+      shipping_others: Number(s.shipping_others || 70)
+    };
+    for (const k of SETTINGS_KEYS) out[k] = s[k] || '';
+    return c.json(out);
   });
 
   app.get('/api/products', async (c) => {
@@ -103,7 +140,53 @@ export async function createApp({ q, sessionSecret }) {
     });
   });
 
-  app.post('/api/order', orderRateLimit, async (c) => {
+  app.get('/img/site/:key', async (c) => {
+    const { rows } = await q`SELECT data, mime FROM site_images WHERE key = ${c.req.param('key')}`;
+    if (!rows.length || !rows[0].data) return c.notFound();
+    const bytes = base64ToBytes(rows[0].data);
+    return new Response(bytes, {
+      headers: { 'Content-Type': rows[0].mime || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' }
+    });
+  });
+
+  // ---------- Public: coupon validate ----------
+  app.post('/api/coupon', limit('coupon', 30), async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const code = String(b.code || '').trim().toUpperCase().replace(/\s+/g, '');
+    const subtotal = Math.max(0, Number(b.subtotal) || 0);
+    if (!code) return c.json({ ok: false, error: 'اكتب الكود' });
+    const cr = await q`SELECT * FROM coupons WHERE code = ${code} AND active = 1`;
+    if (!cr.rows.length) return c.json({ ok: false, error: 'الكود غلط أو منتهي' });
+    const cp = cr.rows[0];
+    if (Number(cp.min_order) > 0 && subtotal < Number(cp.min_order))
+      return c.json({ ok: false, error: `الكود ده للطلبات فوق ${cp.min_order} جنيه` });
+    const discount = calcDiscount(cp.kind, cp.value, subtotal);
+    if (!discount) return c.json({ ok: false, error: 'الكود مش شغال على المبلغ ده' });
+    return c.json({
+      ok: true, code: cp.code, discount,
+      kind: cp.kind, value: Number(cp.value), min_order: Number(cp.min_order)
+    });
+  });
+
+  // ---------- Public: reviews ----------
+  app.get('/api/products/:id/reviews', async (c) => {
+    const { rows } = await q`SELECT name, rating, comment, created_at FROM reviews
+      WHERE product_id = ${c.req.param('id')} AND approved = 1 ORDER BY id DESC LIMIT 50`;
+    return c.json({ ok: true, reviews: rows });
+  });
+
+  app.post('/api/products/:id/reviews', limit('review', 5), async (c) => {
+    const v = validateReviewBody(await c.req.json().catch(() => ({})));
+    if (v.error) return c.json({ ok: false, error: v.error });
+    const pr = await q`SELECT id FROM products WHERE id = ${c.req.param('id')} AND active = 1`;
+    if (!pr.rows.length) return c.json({ ok: false, error: 'المنتج غير متاح' });
+    const d = v.data;
+    await q`INSERT INTO reviews(product_id,name,rating,comment,approved)
+      VALUES(${c.req.param('id')},${d.name},${d.rating},${d.comment},${0})`;
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/order', limit('order', 10), async (c) => {
     try {
       const b = await c.req.json().catch(() => ({}));
       let { product_id, color, size, qty, name, phone, governorate, address, notes } = b;
@@ -115,8 +198,10 @@ export async function createApp({ q, sessionSecret }) {
 
       if (name.length < 3) return c.json({ ok: false, error: 'اكتب الاسم بالكامل (3 حروف على الأقل)' });
       if (!/^01[0125][0-9]{8}$/.test(phone)) return c.json({ ok: false, error: 'رقم الموبايل غلط — لازم يبدأ بـ 01 ومكوّن من 11 رقم' });
-      if (!GOVERNORATES.includes(governorate)) return c.json({ ok: false, error: 'اختار المحافظة' });
       if (address.length < 5) return c.json({ ok: false, error: 'اكتب العنوان بالتفصيل' });
+
+      const gr = await q`SELECT shipping FROM governorates WHERE name = ${governorate}`;
+      if (!gr.rows.length) return c.json({ ok: false, error: 'اختار المحافظة' });
 
       const pr = await q`SELECT * FROM products WHERE id = ${product_id} AND active = 1`;
       if (!pr.rows.length) return c.json({ ok: false, error: 'المنتج غير متاح' });
@@ -124,20 +209,37 @@ export async function createApp({ q, sessionSecret }) {
       if (!pp.colors.map(x => x.name).includes(color)) return c.json({ ok: false, error: 'اختار اللون' });
       if (!pp.sizes.includes(size)) return c.json({ ok: false, error: 'اختار المقاس' });
 
-      const s = await getSettings();
       const unit = Number(pp.price);
-      const shipping = CITY_GOVS.includes(governorate) ? Number(s.shipping_cities || 50) : Number(s.shipping_others || 70);
-      const total = unit * qty + shipping;
+      const subtotal = unit * qty;
+
+      // coupon (revalidated server-side, never trust client math)
+      let couponCode = '', discount = 0;
+      const rawCode = String(b.coupon_code || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (rawCode) {
+        const cr = await q`SELECT * FROM coupons WHERE code = ${rawCode} AND active = 1`;
+        if (!cr.rows.length) return c.json({ ok: false, error: 'كود الخصم غلط أو منتهي' });
+        const cp = cr.rows[0];
+        if (Number(cp.min_order) > 0 && subtotal < Number(cp.min_order))
+          return c.json({ ok: false, error: `الكود ده للطلبات فوق ${cp.min_order} جنيه` });
+        discount = calcDiscount(cp.kind, cp.value, subtotal);
+        if (!discount) return c.json({ ok: false, error: 'الكود ده مش شغال على الطلب ده' });
+        couponCode = cp.code;
+      }
+
+      const shipping = Number(gr.rows[0].shipping);
+      const total = subtotal - discount + shipping;
 
       const ins = await q`INSERT INTO orders
-        (product_id, product_name, color, size, qty, unit_price, shipping, total, name, phone, governorate, address, notes)
-        VALUES (${pp.id},${pp.name},${color},${size},${qty},${unit},${shipping},${total},${name},${phone},${governorate},${address},${notes})
+        (product_id, product_name, color, size, qty, unit_price, shipping, total, coupon_code, discount,
+         name, phone, governorate, address, notes)
+        VALUES (${pp.id},${pp.name},${color},${size},${qty},${unit},${shipping},${total},${couponCode},${discount},
+          ${name},${phone},${governorate},${address},${notes})
         RETURNING id`;
       const id = ins.rows[0].id;
       const order_no = 'CC-' + (100000 + Number(id));
       await q`UPDATE orders SET order_no = ${order_no} WHERE id = ${id}`;
 
-      return c.json({ ok: true, order_no, total, shipping });
+      return c.json({ ok: true, order_no, total, shipping, discount });
     } catch (e) {
       console.error('order error', e);
       return c.json({ ok: false, error: 'حصل خطأ، حاول تاني' }, 500);
@@ -239,6 +341,105 @@ export async function createApp({ q, sessionSecret }) {
     return c.json({ ok: true });
   });
 
+  // ---------- Admin: governorates ----------
+  app.get('/api/admin/governorates', requireAdmin, async (c) => {
+    const { rows } = await q`SELECT name, shipping FROM governorates ORDER BY sort`;
+    return c.json({ ok: true, governorates: rows.map(g => ({ name: g.name, shipping: Number(g.shipping) })) });
+  });
+
+  app.post('/api/admin/governorates', requireAdmin, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const name = String(b.name || '').trim();
+    const shipping = Number(b.shipping);
+    if (name.length < 2) return c.json({ ok: false, error: 'اكتب اسم المحافظة' });
+    if (!(shipping >= 0)) return c.json({ ok: false, error: 'سعر الشحن غلط' });
+    try {
+      const mx = await q`SELECT COALESCE(MAX(sort),-1)+1 s FROM governorates`;
+      await q`INSERT INTO governorates(name, shipping, sort) VALUES(${name},${shipping},${Number(mx.rows[0].s)})`;
+    } catch {
+      return c.json({ ok: false, error: 'المحافظة دي موجودة قبل كده' });
+    }
+    return c.json({ ok: true });
+  });
+
+  app.put('/api/admin/governorates/:name', requireAdmin, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const shipping = Number(b.shipping);
+    if (!(shipping >= 0)) return c.json({ ok: false, error: 'سعر الشحن غلط' });
+    await q`UPDATE governorates SET shipping = ${shipping} WHERE name = ${c.req.param('name')}`;
+    return c.json({ ok: true });
+  });
+
+  app.delete('/api/admin/governorates/:name', requireAdmin, async (c) => {
+    await q`DELETE FROM governorates WHERE name = ${c.req.param('name')}`;
+    return c.json({ ok: true });
+  });
+
+  // ---------- Admin: coupons ----------
+  app.get('/api/admin/coupons', requireAdmin, async (c) => {
+    const { rows } = await q`SELECT * FROM coupons ORDER BY id`;
+    return c.json({
+      ok: true, coupons: rows.map(x => ({
+        id: x.id, code: x.code, kind: x.kind, value: Number(x.value),
+        min_order: Number(x.min_order), active: Number(x.active)
+      }))
+    });
+  });
+
+  app.post('/api/admin/coupons', requireAdmin, async (c) => {
+    const v = validateCouponBody(await c.req.json().catch(() => ({})));
+    if (v.error) return c.json({ ok: false, error: v.error });
+    const d = v.data;
+    try {
+      await q`INSERT INTO coupons(code,kind,value,min_order,active) VALUES(${d.code},${d.kind},${d.value},${d.min_order},${d.active})`;
+    } catch {
+      return c.json({ ok: false, error: 'الكود ده موجود قبل كده' });
+    }
+    return c.json({ ok: true });
+  });
+
+  app.put('/api/admin/coupons/:id', requireAdmin, async (c) => {
+    const v = validateCouponBody(await c.req.json().catch(() => ({})));
+    if (v.error) return c.json({ ok: false, error: v.error });
+    const d = v.data;
+    try {
+      await q`UPDATE coupons SET code=${d.code},kind=${d.kind},value=${d.value},min_order=${d.min_order},active=${d.active}
+        WHERE id=${c.req.param('id')}`;
+    } catch {
+      return c.json({ ok: false, error: 'الكود ده موجود قبل كده' });
+    }
+    return c.json({ ok: true });
+  });
+
+  app.delete('/api/admin/coupons/:id', requireAdmin, async (c) => {
+    await q`DELETE FROM coupons WHERE id = ${c.req.param('id')}`;
+    return c.json({ ok: true });
+  });
+
+  // ---------- Admin: reviews moderation ----------
+  app.get('/api/admin/reviews', requireAdmin, async (c) => {
+    const f = c.req.query('filter');
+    let rows;
+    if (f === 'pending')
+      rows = (await q`SELECT r.*, p.name AS product_name FROM reviews r LEFT JOIN products p ON p.id = r.product_id WHERE r.approved = 0 ORDER BY r.id DESC`).rows;
+    else if (f === 'approved')
+      rows = (await q`SELECT r.*, p.name AS product_name FROM reviews r LEFT JOIN products p ON p.id = r.product_id WHERE r.approved = 1 ORDER BY r.id DESC`).rows;
+    else
+      rows = (await q`SELECT r.*, p.name AS product_name FROM reviews r LEFT JOIN products p ON p.id = r.product_id ORDER BY r.id DESC LIMIT 200`).rows;
+    return c.json({ ok: true, reviews: rows });
+  });
+
+  app.patch('/api/admin/reviews/:id', requireAdmin, async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    await q`UPDATE reviews SET approved = ${b.approved ? 1 : 0} WHERE id = ${c.req.param('id')}`;
+    return c.json({ ok: true });
+  });
+
+  app.delete('/api/admin/reviews/:id', requireAdmin, async (c) => {
+    await q`DELETE FROM reviews WHERE id = ${c.req.param('id')}`;
+    return c.json({ ok: true });
+  });
+
   // ---------- Admin: upload (stored as base64 in DB) ----------
   app.post('/api/admin/upload', requireAdmin, async (c) => {
     try {
@@ -257,6 +458,36 @@ export async function createApp({ q, sessionSecret }) {
     }
   });
 
+  // ---------- Admin: site images (logo etc.) ----------
+  app.post('/api/admin/site-image', requireAdmin, async (c) => {
+    try {
+      const form = await c.req.formData();
+      const key = String(form.get('key') || '').trim();
+      if (!/^[a-z0-9_-]{1,20}$/.test(key)) return c.json({ ok: false, error: 'اسم الصورة غلط' });
+      const file = form.get('image');
+      if (!file || typeof file.arrayBuffer !== 'function') return c.json({ ok: false, error: 'اختار صورة' });
+      if (!String(file.type || '').startsWith('image/')) return c.json({ ok: false, error: 'لازم ملف صورة' });
+      const buf = new Uint8Array(await file.arrayBuffer());
+      if (buf.length > 2.5 * 1024 * 1024) return c.json({ ok: false, error: 'الصورة كبيرة — لازم أصغر من 2.5MB' });
+      const b64 = bytesToBase64(buf);
+      await q`INSERT INTO site_images(key,data,mime) VALUES(${key},${b64},${file.type || 'image/jpeg'})
+        ON CONFLICT(key) DO UPDATE SET data = ${b64}, mime = ${file.type || 'image/jpeg'}`;
+      const url = '/img/site/' + key;
+      if (key === 'logo') await setSetting('logo_url', url);
+      return c.json({ ok: true, url });
+    } catch (e) {
+      console.error('site-image error', e);
+      return c.json({ ok: false, error: 'فشل الرفع' });
+    }
+  });
+
+  app.delete('/api/admin/site-image/:key', requireAdmin, async (c) => {
+    const key = c.req.param('key');
+    await q`DELETE FROM site_images WHERE key = ${key}`;
+    if (key === 'logo') await setSetting('logo_url', '');
+    return c.json({ ok: true });
+  });
+
   // ---------- Admin: settings ----------
   app.get('/api/admin/settings', requireAdmin, async (c) => {
     const s = await getSettings();
@@ -268,11 +499,19 @@ export async function createApp({ q, sessionSecret }) {
   app.put('/api/admin/settings', requireAdmin, async (c) => {
     const b = await c.req.json().catch(() => ({}));
     for (const k of SETTINGS_KEYS) {
-      if (b[k] !== undefined) {
-        let v = String(b[k]).trim();
-        if (k === 'whatsapp') v = v.replace(/\D/g, '');
-        await setSetting(k, v);
+      if (b[k] === undefined) continue;
+      let v = String(b[k]);
+      if (k === 'whatsapp') v = v.replace(/\D/g, '').slice(0, 20);
+      else if (k === 'tiktok_pixel') v = v.trim().slice(0, 40);
+      else if (k === 'theme_primary' || k === 'theme_dark') {
+        v = v.trim();
+        if (v && !/^#[0-9a-fA-F]{6}$/.test(v)) continue; // ignore invalid colors
       }
+      else if (k === 'deal_enabled') v = (v === '1' || v === 'true' || v === 'on') ? '1' : '';
+      else if (k === 'deal_ends_at') v = v.trim().slice(0, 25);
+      else if (/^[ft][1-4]i$/.test(k)) v = v.trim().slice(0, 8);
+      else v = v.trim().slice(0, 500);
+      await setSetting(k, v);
     }
     return c.json({ ok: true });
   });

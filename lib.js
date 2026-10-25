@@ -151,3 +151,35 @@ export async function verifyToken(token, secret) {
     return p;
   } catch { return null; }
 }
+
+// ---------------- Coupons & reviews ----------------
+export function calcDiscount(kind, value, subtotal) {
+  subtotal = Math.max(0, Number(subtotal) || 0);
+  value = Number(value) || 0;
+  if (!(value > 0)) return 0;
+  if (kind === 'pct') return Math.min(subtotal, Math.round(subtotal * Math.min(value, 90) / 100));
+  if (kind === 'fixed') return Math.min(subtotal, Math.round(value));
+  return 0;
+}
+
+export function validateCouponBody(b) {
+  const code = String(b.code || '').trim().toUpperCase().replace(/\s+/g, '');
+  const kind = b.kind === 'fixed' ? 'fixed' : 'pct';
+  const value = Number(b.value);
+  const min_order = Math.max(0, Number(b.min_order || 0));
+  if (code.length < 2) return { error: 'كود الخصم لازم حرفين على الأقل' };
+  if (!(value > 0)) return { error: 'قيمة الخصم لازم أكبر من صفر' };
+  if (kind === 'pct' && value > 90) return { error: 'نسبة الخصم بحد أقصى 90%' };
+  return { data: { code, kind, value, min_order, active: (b.active === false || b.active === 0 || b.active === '0') ? 0 : 1 } };
+}
+
+export function validateReviewBody(b) {
+  const name = String(b.name || '').trim();
+  const rating = parseInt(b.rating);
+  const comment = String(b.comment || '').trim();
+  if (name.length < 2) return { error: 'اكتب اسمك' };
+  if (!(rating >= 1 && rating <= 5)) return { error: 'اختار التقييم بالنجوم ⭐' };
+  if (comment.length < 3) return { error: 'اكتب تعليقك (3 حروف على الأقل)' };
+  if (comment.length > 500) return { error: 'التعليق طويل أوي — اختصره شوية' };
+  return { data: { name: name.slice(0, 60), rating, comment: comment.slice(0, 500) } };
+}

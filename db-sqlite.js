@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { GOVERNORATES, CITY_GOVS } from './lib.js';
 
 export const DDL_SQLITE = [
   `CREATE TABLE IF NOT EXISTS products (
@@ -19,12 +20,28 @@ export const DDL_SQLITE = [
     order_no TEXT UNIQUE, product_id INTEGER, product_name TEXT,
     color TEXT, size TEXT, qty INTEGER,
     unit_price REAL, shipping REAL, total REAL,
+    coupon_code TEXT DEFAULT '', discount REAL DEFAULT 0,
     name TEXT, phone TEXT, governorate TEXT, address TEXT, notes TEXT DEFAULT '',
     status TEXT DEFAULT 'new',
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
   `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT DEFAULT '')`,
   `CREATE TABLE IF NOT EXISTS product_images (
     id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, mime TEXT DEFAULT 'image/jpeg',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
+  `CREATE TABLE IF NOT EXISTS governorates (
+    name TEXT PRIMARY KEY, shipping REAL DEFAULT 70, sort INTEGER DEFAULT 0)`,
+  `CREATE TABLE IF NOT EXISTS coupons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL,
+    kind TEXT DEFAULT 'pct', value REAL DEFAULT 0, min_order REAL DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
+  `CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER,
+    name TEXT DEFAULT '', rating INTEGER DEFAULT 5, comment TEXT DEFAULT '',
+    approved INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
+  `CREATE TABLE IF NOT EXISTS site_images (
+    key TEXT PRIMARY KEY, data TEXT, mime TEXT DEFAULT 'image/jpeg',
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`
 ];
 
@@ -50,6 +67,23 @@ export function createSqliteDb() {
 
   async function init() {
     for (const stmt of DDL_SQLITE) db.exec(stmt);
+    // ---- migrate old DBs: coupon columns on orders ----
+    const cols = db.prepare('PRAGMA table_info(orders)').all().map(c => c.name);
+    if (!cols.includes('coupon_code')) db.exec(`ALTER TABLE orders ADD COLUMN coupon_code TEXT DEFAULT ''`);
+    if (!cols.includes('discount')) db.exec(`ALTER TABLE orders ADD COLUMN discount REAL DEFAULT 0`);
+    // ---- seed governorates once (from current shipping settings) ----
+    const n = db.prepare('SELECT COUNT(*) c FROM governorates').get().c;
+    if (!n) {
+      const getS = (k, d) => {
+        try {
+          const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k);
+          return r ? (Number(r.value) || d) : d;
+        } catch { return d; }
+      };
+      const cs = getS('shipping_cities', 50), os = getS('shipping_others', 70);
+      const ins = db.prepare('INSERT OR IGNORE INTO governorates(name, shipping, sort) VALUES(?,?,?)');
+      GOVERNORATES.forEach((g, i) => ins.run(g, CITY_GOVS.includes(g) ? cs : os, i));
+    }
   }
 
   return { q, init, pgLike: false };

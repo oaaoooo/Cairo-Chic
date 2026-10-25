@@ -1,6 +1,29 @@
 // ================= CAIRO CHIC - Admin =================
 const $ = (id) => document.getElementById(id);
 let STATUS_AR = {};
+let revFilter = 'pending';
+
+const DEF_FEATURES = [
+  { i: '🧥', t: 'خامة ميلتون تقيلة', d: 'بطانة داخلية ناعمة تدفيك في عز البرد ومبتوبرش' },
+  { i: '✂️', t: 'تلبيس أوفرسايز مظبوط', d: 'قصّة عصرية مريحة، شيك في اللبس ومناسبة لكل الأجسام' },
+  { i: '🎨', t: '4 ألوان ترندي', d: 'بيج، أسود، كحلي، رمادي — اختار اللي على ذوقك' },
+  { i: '🧵', t: 'تقغيل وفينيش نضيف', d: 'خياطة محترمة وتشطيب يعيش معاك مواسم مش موسم واحد' }
+];
+const DEF_TRUST = [
+  { i: '💵', t: 'الدفع عند الاستلام', d: 'ادفع لما الأوردر يوصلك' },
+  { i: '📦', t: 'معاينة قبل الاستلام', d: 'عاين المنتج براحتك' },
+  { i: '🔄', t: 'استبدال سهل', d: 'لو المقاس مش مظبوط' },
+  { i: '🚚', t: 'شحن لكل مصر', d: 'من 2 لـ 5 أيام عمل' }
+];
+const FIELD_MAP = {
+  sNameAr: 'store_name_ar', sNameEn: 'store_name_en', sAnnounce: 'announcement',
+  sWhatsapp: 'whatsapp', sPixel: 'tiktok_pixel',
+  sFeaturesTitle: 'features_title', sReviewsTitle: 'reviews_title', sHowTitle: 'how_title',
+  sFaqTitle: 'faq_title', sMoreTitle: 'more_title',
+  sFooterText: 'footer_text', sStockLine: 'stock_line', sSizeHint: 'size_hint', sCtaText: 'cta_text',
+  sThemePrimary: 'theme_primary', sThemeDark: 'theme_dark',
+  sDealTitle: 'deal_title', sDealSub: 'deal_sub', sDealEndsAt: 'deal_ends_at'
+};
 
 async function api(url, method = 'GET', body) {
   const r = await fetch(url, {
@@ -31,14 +54,19 @@ function showPanel() {
   loadStats();
   loadOrders();
   loadProducts();
+  loadGovs();
+  loadCoupons();
+  loadReviews();
+  loadRevCount();
   loadSettings();
 }
 
 function bindPanel() {
+  const tabs = ['orders', 'products', 'govs', 'coupons', 'reviews', 'settings'];
   document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    ['orders', 'products', 'settings'].forEach(n => $('tab-' + n).style.display = n === t.dataset.tab ? '' : 'none');
+    tabs.forEach(n => $('tab-' + n).style.display = n === t.dataset.tab ? '' : 'none');
   });
   $('logoutBtn').onclick = async () => { await api('/api/admin/logout', 'POST'); location.reload(); };
   $('refreshOrders').onclick = loadOrders;
@@ -46,8 +74,47 @@ function bindPanel() {
   $('addColorBtn').onclick = () => addColorRow();
   $('saveProdBtn').onclick = saveProduct;
   $('cancelEditBtn').onclick = resetProdForm;
-  $('saveSettingsBtn').onclick = saveSettings;
+  $('addGovBtn').onclick = addGov;
+  $('addCouponBtn').onclick = addCoupon;
+  $('refreshReviews').onclick = () => { loadReviews(); loadRevCount(); };
+  document.querySelectorAll('[data-revf]').forEach(b => b.onclick = () => { revFilter = b.dataset.revf; loadReviews(); });
+  document.querySelectorAll('.saveSettingsBtn').forEach(b => b.onclick = saveSettings);
   $('changePwBtn').onclick = changePassword;
+  $('logoFile').onchange = uploadLogo;
+  $('logoRemoveBtn').onclick = removeLogo;
+  $('themeResetBtn').onclick = async () => {
+    $('sThemePrimary').value = '#ff7a00';
+    $('sThemeDark').value = '#141419';
+    await saveSettings();
+  };
+  buildContentFields();
+}
+
+function buildContentFields() {
+  const ff = $('featFields'); ff.innerHTML = '';
+  DEF_FEATURES.forEach((d, idx) => {
+    const i = idx + 1;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h4 style="margin:10px 0 2px">مربع ${i}</h4>
+      <div class="grid3">
+        <label>الأيقونة<input id="ff${i}i" placeholder="${esc(d.i)}"></label>
+        <label>العنوان<input id="ff${i}t" placeholder="${esc(d.t)}"></label>
+        <label>الوصف<input id="ff${i}d" placeholder="${esc(d.d)}"></label>
+      </div>`;
+    ff.appendChild(wrap);
+  });
+  const tf = $('trustFields'); tf.innerHTML = '';
+  DEF_TRUST.forEach((d, idx) => {
+    const i = idx + 1;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<h4 style="margin:10px 0 2px">مربع ${i}</h4>
+      <div class="grid3">
+        <label>الأيقونة<input id="tf${i}i" placeholder="${esc(d.i)}"></label>
+        <label>العنوان<input id="tf${i}t" placeholder="${esc(d.t)}"></label>
+        <label>الوصف<input id="tf${i}d" placeholder="${esc(d.d)}"></label>
+      </div>`;
+    tf.appendChild(wrap);
+  });
 }
 
 // ---------- Stats & Orders ----------
@@ -83,12 +150,13 @@ async function loadOrders() {
   j.orders.forEach(o => {
     const tr = document.createElement('tr');
     const waText = encodeURIComponent(`أهلاً ${o.name}، معاك كايرو شيك 🦅 بخصوص طلبك رقم ${o.order_no} (${o.product_name} - ${o.color} - ${o.size}) بإجمالي ${o.total} جنيه. نأكد الطلب؟`);
+    const couponLine = o.coupon_code ? `<br><small>🎟 <b dir="ltr">${esc(o.coupon_code)}</b> (خصم ${o.discount})</small>` : '';
     tr.innerHTML = `
       <td><b dir="ltr">${o.order_no}</b></td>
       <td style="white-space:nowrap">${(o.created_at || '').slice(0, 16).replace('T', ' ')}</td>
       <td><b>${esc(o.name)}</b><br><a href="tel:${o.phone}" dir="ltr">${o.phone}</a></td>
       <td>${esc(o.product_name)}<br>🎨 ${esc(o.color)} | 📏 ${esc(o.size)} | × ${o.qty}</td>
-      <td><b>${o.total} ج</b><br><small class="muted">شحن: ${o.shipping}</small></td>
+      <td><b>${o.total} ج</b><br><small class="muted">شحن: ${o.shipping}</small>${couponLine}</td>
       <td>${esc(o.governorate)}<br><small>${esc(o.address)}</small>${o.notes ? `<br><small>📝 ${esc(o.notes)}</small>` : ''}</td>
       <td><select class="status-select" data-id="${o.id}">
         ${Object.entries(STATUS_AR).map(([k, v]) => `<option value="${k}" ${k === o.status ? 'selected' : ''}>${v}</option>`).join('')}
@@ -114,12 +182,11 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// Downscale huge phone photos in the browser before upload (max 1200px, JPEG)
-function resizeImage(file) {
+// Downscale huge phone photos in the browser before upload (JPEG)
+function resizeImage(file, max = 1200) {
   return new Promise((resolve) => {
     try {
       createImageBitmap(file).then((bmp) => {
-        const max = 1200;
         const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
         const cv = document.createElement('canvas');
         cv.width = Math.max(1, Math.round(bmp.width * scale));
@@ -148,7 +215,7 @@ function addColorRow(name = '', image = '') {
     const f = e.target.files[0];
     if (!f) return;
     const fd = new FormData();
-    fd.append('image', f);
+    fd.append('image', await resizeImage(f), f.name || 'photo.jpg');
     const r = await fetch('/api/admin/upload', { method: 'POST', body: fd });
     const j = await r.json();
     if (j.ok) { div.querySelector('.c-img').value = j.url; imgPrev.src = j.url; }
@@ -231,32 +298,215 @@ async function loadProducts() {
   if ($('colorRows').children.length === 0) addColorRow();
 }
 
+// ---------- Governorates ----------
+async function loadGovs() {
+  const j = await api('/api/admin/governorates');
+  if (!j.ok) return;
+  $('govCount').textContent = j.governorates.length;
+  const tb = $('govsBody');
+  tb.innerHTML = '';
+  j.governorates.forEach(g => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${esc(g.name)}</b></td>
+      <td><input type="number" min="0" value="${g.shipping}" class="g-ship" style="max-width:120px"></td>
+      <td><button class="btn-mini btn-ok g-save">حفظ 💾</button></td>
+      <td><button class="btn-mini btn-del g-del">حذف 🗑</button></td>`;
+    tr.querySelector('.g-save').onclick = async () => {
+      const ship = tr.querySelector('.g-ship').value;
+      const r = await api('/api/admin/governorates/' + encodeURIComponent(g.name), 'PUT', { shipping: Number(ship) });
+      if (!r.ok) alert(r.error || 'خطأ');
+      else { loadGovs(); }
+    };
+    tr.querySelector('.g-del').onclick = async () => {
+      if (!confirm(`تحذف محافظة "${g.name}"؟ العملاء مش هيقدروا يختاروها بعد كده.`)) return;
+      await api('/api/admin/governorates/' + encodeURIComponent(g.name), 'DELETE');
+      loadGovs();
+    };
+    tb.appendChild(tr);
+  });
+}
+
+async function addGov() {
+  const j = await api('/api/admin/governorates', 'POST', {
+    name: $('gName').value.trim(),
+    shipping: Number($('gShip').value)
+  });
+  if (!j.ok) { $('govError').textContent = j.error; return; }
+  $('govError').textContent = '';
+  $('gName').value = ''; $('gShip').value = '';
+  loadGovs();
+}
+
+// ---------- Coupons ----------
+function couponDesc(c) {
+  const d = c.kind === 'pct' ? `خصم ${c.value}%` : `خصم ${c.value} جنيه`;
+  return c.min_order > 0 ? `${d} (أقل طلب: ${c.min_order} ج)` : d;
+}
+
+async function loadCoupons() {
+  const j = await api('/api/admin/coupons');
+  if (!j.ok) return;
+  const list = $('couponsList');
+  list.innerHTML = '';
+  if (!j.coupons.length) {
+    list.innerHTML = '<p class="hint">مفيش كوبونات لسه — ضيف أول كوبون من فوق 🎟️</p>';
+    return;
+  }
+  j.coupons.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'prod-item';
+    div.innerHTML = `
+      <div class="grow"><b dir="ltr" style="font-size:18px">${esc(c.code)}</b>
+        ${c.active ? '' : '<span class="badge-off">موقوف</span>'}
+        <div class="muted" style="font-size:13px">${esc(couponDesc(c))}</div>
+      </div>
+      <button class="btn-mini ${c.active ? 'btn-del' : 'btn-ok'} c-toggle">${c.active ? 'إيقاف ⏸' : 'تشغيل ▶'}</button>
+      <button class="btn-mini btn-del c-del">حذف 🗑</button>`;
+    div.querySelector('.c-toggle').onclick = async () => {
+      await api('/api/admin/coupons/' + c.id, 'PUT', {
+        code: c.code, kind: c.kind, value: c.value, min_order: c.min_order, active: !c.active
+      });
+      loadCoupons();
+    };
+    div.querySelector('.c-del').onclick = async () => {
+      if (!confirm(`تحذف كوبون "${c.code}"؟`)) return;
+      await api('/api/admin/coupons/' + c.id, 'DELETE');
+      loadCoupons();
+    };
+    list.appendChild(div);
+  });
+}
+
+async function addCoupon() {
+  const j = await api('/api/admin/coupons', 'POST', {
+    code: $('cCode').value,
+    kind: $('cKind').value,
+    value: Number($('cValue').value),
+    min_order: Number($('cMin').value || 0),
+    active: $('cActive').checked
+  });
+  if (!j.ok) { $('couponError').textContent = j.error; return; }
+  $('couponError').textContent = '';
+  $('cCode').value = ''; $('cValue').value = ''; $('cMin').value = '';
+  $('cActive').checked = true;
+  loadCoupons();
+}
+
+// ---------- Reviews ----------
+function starStr(n) {
+  n = Math.max(1, Math.min(5, Math.round(Number(n) || 5)));
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+
+async function loadRevCount() {
+  const j = await api('/api/admin/reviews?filter=pending');
+  if (j.ok) $('revPendCount').textContent = j.reviews.length;
+}
+
+async function loadReviews() {
+  const j = await api('/api/admin/reviews?filter=' + revFilter);
+  if (!j.ok) return;
+  const list = $('reviewsList');
+  list.innerHTML = '';
+  if (!j.reviews.length) {
+    list.innerHTML = `<p class="hint">${revFilter === 'pending' ? 'مفيش تقييمات مستنية — كله تمام ✅' : 'مفيش تقييمات منشورة لسه'}</p>`;
+    return;
+  }
+  j.reviews.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'rev-card';
+    div.innerHTML = `
+      <div class="stars">${starStr(r.rating)}</div>
+      <p>"${esc(r.comment)}"</p>
+      <div class="meta">— ${esc(r.name)} | 🛍 ${esc(r.product_name || 'منتج محذوف')} | ${(r.created_at || '').slice(0, 16).replace('T', ' ')}</div>
+      <div style="margin-top:8px">
+        ${revFilter === 'pending' ? '<button class="btn-mini btn-ok r-ok">نشر ✅</button>' : '<button class="btn-mini btn-edit r-hide">إخفاء 🙈</button>'}
+        <button class="btn-mini btn-del r-del">حذف 🗑</button>
+      </div>`;
+    const okBtn = div.querySelector('.r-ok');
+    if (okBtn) okBtn.onclick = async () => {
+      await api('/api/admin/reviews/' + r.id, 'PATCH', { approved: true });
+      loadReviews(); loadRevCount();
+    };
+    const hideBtn = div.querySelector('.r-hide');
+    if (hideBtn) hideBtn.onclick = async () => {
+      await api('/api/admin/reviews/' + r.id, 'PATCH', { approved: false });
+      loadReviews(); loadRevCount();
+    };
+    div.querySelector('.r-del').onclick = async () => {
+      if (!confirm('تحذف التقييم ده نهائياً؟')) return;
+      await api('/api/admin/reviews/' + r.id, 'DELETE');
+      loadReviews(); loadRevCount();
+    };
+    list.appendChild(div);
+  });
+}
+
 // ---------- Settings ----------
 async function loadSettings() {
   const j = await api('/api/admin/settings');
   if (!j.ok) return;
   const s = j.settings;
-  $('sNameAr').value = s.store_name_ar || '';
-  $('sNameEn').value = s.store_name_en || '';
-  $('sAnnounce').value = s.announcement || '';
-  $('sWhatsapp').value = s.whatsapp || '';
-  $('sPixel').value = s.tiktok_pixel || '';
-  $('sShipCities').value = s.shipping_cities || '50';
-  $('sShipOthers').value = s.shipping_others || '70';
+  Object.entries(FIELD_MAP).forEach(([id, key]) => {
+    const el = $(id);
+    if (el) el.value = s[key] || '';
+  });
+  if (!s.theme_primary) $('sThemePrimary').value = '#ff7a00';
+  if (!s.theme_dark) $('sThemeDark').value = '#141419';
+  $('sDealEnabled').checked = s.deal_enabled === '1';
+  for (let i = 1; i <= 4; i++) {
+    $('ff' + i + 'i').value = s['f' + i + 'i'] || '';
+    $('ff' + i + 't').value = s['f' + i + 't'] || '';
+    $('ff' + i + 'd').value = s['f' + i + 'd'] || '';
+    $('tf' + i + 'i').value = s['t' + i + 'i'] || '';
+    $('tf' + i + 't').value = s['t' + i + 't'] || '';
+    $('tf' + i + 'd').value = s['t' + i + 'd'] || '';
+  }
+  $('logoPrev').src = s.logo_url || '/images/logo.jpg';
 }
 
 async function saveSettings() {
-  const j = await api('/api/admin/settings', 'PUT', {
-    store_name_ar: $('sNameAr').value,
-    store_name_en: $('sNameEn').value,
-    announcement: $('sAnnounce').value,
-    whatsapp: $('sWhatsapp').value,
-    tiktok_pixel: $('sPixel').value,
-    shipping_cities: $('sShipCities').value,
-    shipping_others: $('sShipOthers').value
+  const body = {};
+  Object.entries(FIELD_MAP).forEach(([id, key]) => {
+    const el = $(id);
+    if (el) body[key] = el.value;
   });
-  $('setError').textContent = j.ok ? 'تم الحفظ ✅' : (j.error || 'خطأ');
-  if (j.ok) setTimeout(() => $('setError').textContent = '', 2500);
+  // empty color = default theme (don't force a value)
+  body.deal_enabled = $('sDealEnabled').checked ? '1' : '';
+  for (let i = 1; i <= 4; i++) {
+    body['f' + i + 'i'] = $('ff' + i + 'i').value;
+    body['f' + i + 't'] = $('ff' + i + 't').value;
+    body['f' + i + 'd'] = $('ff' + i + 'd').value;
+    body['t' + i + 'i'] = $('tf' + i + 'i').value;
+    body['t' + i + 't'] = $('tf' + i + 't').value;
+    body['t' + i + 'd'] = $('tf' + i + 'd').value;
+  }
+  const j = await api('/api/admin/settings', 'PUT', body);
+  const msg = j.ok ? 'تم الحفظ ✅' : (j.error || 'خطأ');
+  $('setError').textContent = msg;
+  $('setError2').textContent = msg;
+  if (j.ok) setTimeout(() => { $('setError').textContent = ''; $('setError2').textContent = ''; }, 2500);
+}
+
+async function uploadLogo() {
+  const f = $('logoFile').files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append('key', 'logo');
+  fd.append('image', await resizeImage(f, 500), f.name || 'logo.jpg');
+  const r = await fetch('/api/admin/site-image', { method: 'POST', body: fd });
+  const j = await r.json();
+  if (j.ok) { $('logoPrev').src = j.url; alert('تم تحديث اللوجو ✅'); }
+  else alert(j.error || 'فشل الرفع');
+  $('logoFile').value = '';
+}
+
+async function removeLogo() {
+  if (!confirm('ترجع للوجو الافتراضي؟')) return;
+  const r = await fetch('/api/admin/site-image/logo', { method: 'DELETE' });
+  const j = await r.json();
+  if (j.ok) $('logoPrev').src = '/images/logo.jpg';
 }
 
 async function changePassword() {
