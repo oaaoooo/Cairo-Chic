@@ -251,7 +251,7 @@ function paintMoreProducts() {
     const card = document.createElement('div');
     card.className = 'pcard';
     card.innerHTML = `
-      <div class="pcard-imgwrap"><img src="${img}" alt="${esc(p.name)}">${p.featured ? '<span class="pcard-feat">⭐ مميز</span>' : ''}${p.video ? '<span class="pcard-vid">🎬</span>' : ''}</div>
+      <div class="pcard-imgwrap"><img src="${img}" alt="${esc(p.name)}" loading="lazy" decoding="async">${p.featured ? '<span class="pcard-feat">⭐ مميز</span>' : ''}${p.video ? '<span class="pcard-vid">🎬</span>' : ''}</div>
       <div class="pbody"><b>${esc(p.name)}</b>
         <div class="prow">
           <div class="pprice">${p.price} ج ${old > p.price ? `<small>${old} ج</small>` : ''}</div>
@@ -375,7 +375,7 @@ function renderCart() {
     const d = document.createElement('div');
     d.className = 'cart-item';
     d.innerHTML = `
-      <img src="${lineImage(x)}" alt="">
+      <img src="${lineImage(x)}" alt="" loading="lazy" decoding="async">
       <div class="grow"><b>${esc(x.p.name)}</b>
         <small>🎨 ${esc(x.color)} | 📏 ${esc(x.size)}</small>
         <div class="qty-mini"><button type="button" data-a="dec">−</button><span>${x.qty}</span><button type="button" data-a="inc">+</button></div>
@@ -507,7 +507,7 @@ function updateSummary() {
     const line = document.createElement('div');
     line.className = 'sum-item';
     line.innerHTML = `
-      <img src="${lineImage(x)}" alt="">
+      <img src="${lineImage(x)}" alt="" loading="lazy" decoding="async">
       <div class="grow"><b>${esc(x.p.name)}</b><small>🎨 ${esc(x.color)} | 📏 ${esc(x.size)} | × ${x.qty}</small></div>
       <b>${x.p.price * x.qty} ج</b>`;
     box.appendChild(line);

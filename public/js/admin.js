@@ -215,17 +215,17 @@ async function loadOrders(page = 1) {
     const waText = encodeURIComponent(`أهلاً ${o.name}، معاك كايرو شيك 🦅 بخصوص طلبك رقم ${o.order_no} (${itemsTxt}) بإجمالي ${o.total} جنيه. نأكد الطلب؟`);
     const couponLine = o.coupon_code ? `<br><small>🎟 <b dir="ltr">${esc(o.coupon_code)}</b> (خصم ${o.discount})</small>` : '';
     tr.innerHTML = `
-      <td><input type="checkbox" class="o-sel" data-id="${o.id}"></td>
-      <td><b dir="ltr">${o.order_no}</b></td>
-      <td style="white-space:nowrap">${fmtDT(o.created_at)}</td>
-      <td><b>${esc(o.name)}</b><br><a href="tel:${o.phone}" dir="ltr">${o.phone}</a></td>
-      <td>${itemsHtml}</td>
-      <td><b>${o.total} ج</b><br><small class="muted">شحن: ${o.shipping}</small>${couponLine}</td>
-      <td>${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}<br><small>${esc(o.address)}</small>${o.notes ? `<br><small>📝 ${esc(o.notes)}</small>` : ''}</td>
-      <td><select class="status-select" data-id="${o.id}">
+      <td class="no-l"><input type="checkbox" class="o-sel" data-id="${o.id}"></td>
+      <td data-l="رقم الطلب"><b dir="ltr">${o.order_no}</b></td>
+      <td data-l="التاريخ" style="white-space:nowrap">${fmtDT(o.created_at)}</td>
+      <td data-l="العميل"><b>${esc(o.name)}</b><br><a href="tel:${o.phone}" dir="ltr">${o.phone}</a></td>
+      <td data-l="الطلب">${itemsHtml}</td>
+      <td data-l="الإجمالي"><b>${o.total} ج</b><br><small class="muted">شحن: ${o.shipping}</small>${couponLine}</td>
+      <td data-l="العنوان">${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}<br><small>${esc(o.address)}</small>${o.notes ? `<br><small>📝 ${esc(o.notes)}</small>` : ''}</td>
+      <td data-l="الحالة"><select class="status-select" data-id="${o.id}">
         ${Object.entries(STATUS_AR).map(([k, v]) => `<option value="${k}" ${k === o.status ? 'selected' : ''}>${v}</option>`).join('')}
       </select></td>
-      <td style="white-space:nowrap">
+      <td data-l="إجراءات" style="white-space:nowrap">
         <button class="btn-mini btn-edit" data-view="${o.id}">👁 عرض</button>
         <a class="btn-mini btn-wa" target="_blank" href="https://wa.me/2${o.phone}?text=${waText}">واتساب 💬</a>
         <button class="btn-mini btn-del" data-del="${o.id}">حذف</button>
@@ -258,7 +258,7 @@ function openOrder(id) {
   const items = (o.items && o.items.length ? o.items : [{ pid: o.product_id, name: o.product_name, color: o.color, size: o.size, qty: o.qty, unit: o.unit_price }]);
   const itemsHtml = items.map(l => `
     <div class="d-item">
-      <img src="${prodImage(l.pid, l.color)}" alt="">
+      <img src="${prodImage(l.pid, l.color)}" alt="" loading="lazy" decoding="async">
       <div class="grow"><b>${esc(l.name)}</b><br><small>🎨 ${esc(l.color)} | 📏 ${esc(l.size)} | × ${l.qty}</small></div>
       <b>${(Number(l.unit) || 0) * l.qty} ج</b>
     </div>`).join('');
@@ -344,7 +344,7 @@ function addColorRow(name = '', image = '') {
   div.innerHTML = `
     <input placeholder="اسم اللون" value="${esc(name)}" class="c-name">
     <input placeholder="رابط الصورة" value="${esc(image)}" class="c-img" dir="ltr">
-    <img src="${esc(image) || '/images/logo.jpg'}">
+    <img src="${esc(image) || '/images/logo.jpg'}" loading="lazy" decoding="async">
     <span><label class="btn-mini btn-edit" style="cursor:pointer">📤 رفع<input type="file" accept="image/*" class="c-file" style="display:none"></label>
     <button class="btn-mini btn-del c-remove" type="button">✕</button></span>`;
   const imgPrev = div.querySelector('img');
@@ -412,7 +412,7 @@ async function loadProducts() {
     const div = document.createElement('div');
     div.className = 'prod-item';
     div.innerHTML = `
-      <img src="${img}">
+      <img src="${img}" loading="lazy" decoding="async">
       <div class="grow"><b>${esc(p.name)}</b> ${p.featured ? '<span class="badge-feat">⭐ مميز</span>' : ''} ${p.video ? '<span class="badge-feat">🎬 فيديو</span>' : ''} ${p.active ? '' : '<span class="badge-off">مخفي</span>'}
         <div class="muted" style="font-size:13px">${p.price} ج ${p.old_price > p.price ? `(قبل: ${p.old_price})` : ''} | 🎨 ${p.colors.length} ألوان | 📏 ${p.sizes.join('، ')}</div>
       </div>
@@ -459,8 +459,8 @@ async function loadGovs() {
   j.governorates.forEach(g => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><b>${esc(g.name)}</b></td>
-      <td><input type="number" min="0" value="${g.shipping}" class="g-ship" style="max-width:120px"></td>
+      <td data-l="المحافظة"><b>${esc(g.name)}</b></td>
+      <td data-l="سعر الشحن"><input type="number" min="0" value="${g.shipping}" class="g-ship" style="max-width:120px"></td>
       <td><button class="btn-mini btn-ok g-save">حفظ 💾</button></td>
       <td><button class="btn-mini btn-del g-del">حذف 🗑</button></td>`;
     tr.querySelector('.g-save').onclick = async () => {

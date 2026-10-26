@@ -73,7 +73,45 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
 .d-item .grow { flex: 1; font-size: 14px; }
 .badge-feat { background: #fff4e8; color: #e56a00; font-size: 12px; padding: 2px 10px; border-radius: 12px; font-weight: 800; }
 .code-in { text-transform: uppercase; }
-@media (max-width: 700px) { .stats { grid-template-columns: repeat(2, 1fr); } .grid2, .grid3 { grid-template-columns: 1fr; } .color-row { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) {
+  .admin-wrap { padding: 12px 10px 40px; }
+  h2 { font-size: 19px; }
+  .panel-box h3 { font-size: 16px; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat b { font-size: 22px; }
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .panel-box { padding: 14px 12px; }
+  .panel-box label { font-size: 13px; }
+  .filter-row select, .panel-box input, .panel-box select, .panel-box textarea { font-size: 14px; padding: 9px 10px; }
+  .login-card { margin: 40px auto; padding: 22px 18px; }
+  /* dashboard cards: compact 2-col */
+  .dash-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .dash-card { padding: 14px 8px; }
+  .dash-card .emoji { font-size: 34px; }
+  .dash-card b { font-size: 14px; }
+  .dash-card span { font-size: 11px; }
+  /* tables -> stacked cards */
+  #tab-orders table, #tab-orders thead, #tab-orders tbody, #tab-orders th, #tab-orders td, #tab-orders tr,
+  #tab-govs table, #tab-govs thead, #tab-govs tbody, #tab-govs th, #tab-govs td, #tab-govs tr { display: block; }
+  #tab-orders thead, #tab-govs thead { display: none; }
+  #tab-orders tr, #tab-govs tr { border: 2px solid #eee; border-radius: 12px; margin-bottom: 10px; padding: 4px 12px; background: #fff; }
+  #tab-orders td, #tab-govs td { border: none; border-bottom: 1px dashed #f0f0f0; padding: 7px 4px; font-size: 13px; }
+  #tab-orders td:last-child, #tab-govs td:last-child { border-bottom: none; }
+  #tab-orders td::before, #tab-govs td::before { content: attr(data-l); display: block; font-size: 11px; color: var(--muted); font-weight: 800; margin-bottom: 1px; }
+  #tab-orders td.no-l::before, #tab-govs td.no-l::before { display: none; }
+  #tab-orders .status-select { width: 100%; }
+  .table-wrap { overflow-x: visible; }
+  /* product form: stack everything */
+  .color-row { grid-template-columns: 1fr; gap: 6px; border: 2px dashed #eee; border-radius: 10px; padding: 10px; }
+  .color-row img { width: 100%; height: 120px; }
+  .prod-item { padding: 10px; }
+  .prod-item img { width: 52px; height: 66px; }
+  /* modal: near full-screen */
+  .modal-overlay { padding: 8px; align-items: flex-end; }
+  .modal-box { padding: 16px 14px; border-radius: 16px 16px 0 0; max-height: 92vh; }
+  .btn-mini { padding: 8px 12px; font-size: 14px; }
+  .back-bar h3 { font-size: 16px; }
+}
 </style>
 </head>
 <body style="padding-bottom:20px">

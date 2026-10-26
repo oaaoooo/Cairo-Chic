@@ -118,6 +118,7 @@ export async function createApp({ q, sessionSecret }) {
     const tok = getCookie(c, 'admin_token');
     const payload = tok ? await verifyToken(tok, sessionSecret) : null;
     if (!payload || payload.role !== 'admin') return c.json({ ok: false, error: 'غير مسموح' }, 401);
+    c.header('Cache-Control', 'no-store');
     return next();
   }
 
@@ -140,11 +141,13 @@ export async function createApp({ q, sessionSecret }) {
       shipping_others: Number(s.shipping_others || 70)
     };
     for (const k of SETTINGS_KEYS) out[k] = s[k] || '';
+    c.header('Cache-Control', 'public, max-age=60');
     return c.json(out);
   });
 
   app.get('/api/products', async (c) => {
     const { rows } = await q`SELECT * FROM products WHERE active = 1 ORDER BY featured DESC, id`;
+    c.header('Cache-Control', 'public, max-age=60');
     return c.json({ ok: true, products: rows.map(parseProduct) });
   });
 
@@ -323,7 +326,7 @@ export async function createApp({ q, sessionSecret }) {
   });
 
   // ---------- Admin: auth ----------
-  app.post('/api/admin/login', async (c) => {
+  app.post('/api/admin/login', limit('login', 20), async (c) => {
     const b = await c.req.json().catch(() => ({}));
     const hash = await getSetting('admin_password');
     if (b.password && hash && await verifyPassword(String(b.password), sessionSecret, hash)) {
