@@ -86,11 +86,13 @@ export function validateProductBody(b) {
   if (!colors.length) return { error: 'ضيف لون واحد على الأقل' };
   const sizes = Array.isArray(b.sizes) ? b.sizes.map(s => String(s).trim()).filter(Boolean) : [];
   if (!sizes.length) return { error: 'ضيف مقاس واحد على الأقل' };
+  const video = String(b.video || '').trim().slice(0, 500);
+  if (video && !/^https?:\/\/\S+\.\S+/.test(video)) return { error: 'رابط الفيديو غلط — لازم يبدأ بـ http' };
   return {
     data: {
       name, price, old_price, description: String(b.description || ''),
       colors: JSON.stringify(colors), sizes: JSON.stringify(sizes),
-      stock: parseInt(b.stock) || 0, active: b.active ? 1 : 0, featured: b.featured ? 1 : 0
+      stock: parseInt(b.stock) || 0, active: b.active ? 1 : 0, featured: b.featured ? 1 : 0, video
     }
   };
 }

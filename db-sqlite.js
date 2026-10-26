@@ -13,7 +13,7 @@ export const DDL_SQLITE = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL, price REAL NOT NULL, old_price REAL DEFAULT 0,
     description TEXT DEFAULT '', colors TEXT DEFAULT '[]', sizes TEXT DEFAULT '[]',
-    stock INTEGER DEFAULT 100, active INTEGER DEFAULT 1, featured INTEGER DEFAULT 0,
+    stock INTEGER DEFAULT 100, active INTEGER DEFAULT 1, featured INTEGER DEFAULT 0, video TEXT DEFAULT '',
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`,
   `CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,6 +75,7 @@ export function createSqliteDb() {
     if (!cols.includes('items')) db.exec(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`);
     const pcols = db.prepare('PRAGMA table_info(products)').all().map(c => c.name);
     if (!pcols.includes('featured')) db.exec(`ALTER TABLE products ADD COLUMN featured INTEGER DEFAULT 0`);
+    if (!pcols.includes('video')) db.exec(`ALTER TABLE products ADD COLUMN video TEXT DEFAULT ''`);
     if (!cols.includes('area')) db.exec(`ALTER TABLE orders ADD COLUMN area TEXT DEFAULT ''`);
     // no delivery to Sinai — drop from existing DBs (no Sinai orders exist)
     db.prepare(`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`).run();

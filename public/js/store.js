@@ -187,7 +187,18 @@ function renderProduct() {
   $('discountBadge').style.display = pct ? '' : 'none';
 
   // gallery
+  $('mainImage').style.display = '';
+  $('mainVideo').style.display = 'none';
+  $('mainVideo').innerHTML = '';
   const thumbs = $('thumbs'); thumbs.innerHTML = '';
+  if (p.video) {
+    const vb = document.createElement('button');
+    vb.type = 'button';
+    vb.className = 'thumb-vid';
+    vb.textContent = '🎬 فيديو';
+    vb.onclick = showVideo;
+    thumbs.appendChild(vb);
+  }
   p.colors.forEach((c, i) => {
     const img = document.createElement('img');
     img.src = c.image || '/images/logo.jpg';
@@ -223,17 +234,24 @@ function renderProduct() {
   $('sizeName').textContent = p.sizes[selSize] || '';
 }
 
+let moreShown = 12;
 function renderMoreProducts() {
   const wrap = $('moreProducts'), grid = $('productsGrid');
   wrap.style.display = '';
+  moreShown = 12;
+  paintMoreProducts();
+}
+function paintMoreProducts() {
+  const grid = $('productsGrid');
   grid.innerHTML = '';
-  PRODUCTS.filter(p => p.id !== CURRENT.id).sort((a, b) => (b.featured || 0) - (a.featured || 0)).forEach(p => {
+  const rest = PRODUCTS.filter(p => p.id !== CURRENT.id).sort((a, b) => (b.featured || 0) - (a.featured || 0));
+  rest.slice(0, moreShown).forEach(p => {
     const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
     const old = Number(p.old_price) || 0;
     const card = document.createElement('div');
     card.className = 'pcard';
     card.innerHTML = `
-      <div class="pcard-imgwrap"><img src="${img}" alt="${esc(p.name)}">${p.featured ? '<span class="pcard-feat">⭐ مميز</span>' : ''}</div>
+      <div class="pcard-imgwrap"><img src="${img}" alt="${esc(p.name)}">${p.featured ? '<span class="pcard-feat">⭐ مميز</span>' : ''}${p.video ? '<span class="pcard-vid">🎬</span>' : ''}</div>
       <div class="pbody"><b>${esc(p.name)}</b>
         <div class="prow">
           <div class="pprice">${p.price} ج ${old > p.price ? `<small>${old} ج</small>` : ''}</div>
@@ -242,11 +260,43 @@ function renderMoreProducts() {
       </div>`;
     card.querySelector('button').onclick = () => {
       selectProduct(p.id);
+      renderMoreProducts();
       window.scrollTo({ top: 0, behavior: 'smooth' });
       track('AddToCart');
     };
     grid.appendChild(card);
   });
+  if (rest.length > moreShown) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn btn-ghost more-btn';
+    b.textContent = `عرض المزيد ⬇️ (${rest.length - moreShown} منتج)`;
+    b.onclick = () => { moreShown += 12; paintMoreProducts(); };
+    grid.appendChild(b);
+  }
+}
+
+// ---------- Product video ----------
+function ytId(url) {
+  const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  return m ? m[1] : null;
+}
+function showVideo() {
+  if (!CURRENT || !CURRENT.video) return;
+  const v = CURRENT.video, y = ytId(v), mv = $('mainVideo');
+  if (y) {
+    mv.innerHTML = `<iframe src="https://www.youtube.com/embed/${y}" title="فيديو المنتج" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  } else if (/\.(mp4|webm|mov)(\?|#|$)/i.test(v)) {
+    mv.innerHTML = `<video controls playsinline preload="metadata" src="${esc(v)}"></video>`;
+  } else {
+    mv.innerHTML = `<a class="btn btn-primary" href="${esc(v)}" target="_blank" rel="noopener">🎬 شوف فيديو المنتج</a>`;
+  }
+  thumbsResetActive();
+  $('mainImage').style.display = 'none';
+  mv.style.display = '';
+}
+function thumbsResetActive() {
+  document.querySelectorAll('#thumbs img').forEach(i => i.classList.remove('active'));
 }
 
 // ---------- Cart ----------

@@ -365,7 +365,7 @@ function addColorRow(name = '', image = '') {
 
 function resetProdForm() {
   $('pId').value = '';
-  $('pName').value = ''; $('pDesc').value = ''; $('pPrice').value = '';
+  $('pName').value = ''; $('pDesc').value = ''; $('pVideo').value = ''; $('pPrice').value = '';
   $('pOld').value = ''; $('pSizes').value = ''; $('pStock').value = '100';
   $('pActive').checked = true;
   $('pFeatured').checked = false;
@@ -384,6 +384,7 @@ async function saveProduct() {
   const body = {
     name: $('pName').value.trim(),
     description: $('pDesc').value.trim(),
+    video: $('pVideo').value.trim(),
     price: Number($('pPrice').value),
     old_price: Number($('pOld').value || 0),
     sizes: $('pSizes').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -412,7 +413,7 @@ async function loadProducts() {
     div.className = 'prod-item';
     div.innerHTML = `
       <img src="${img}">
-      <div class="grow"><b>${esc(p.name)}</b> ${p.featured ? '<span class="badge-feat">⭐ مميز</span>' : ''} ${p.active ? '' : '<span class="badge-off">مخفي</span>'}
+      <div class="grow"><b>${esc(p.name)}</b> ${p.featured ? '<span class="badge-feat">⭐ مميز</span>' : ''} ${p.video ? '<span class="badge-feat">🎬 فيديو</span>' : ''} ${p.active ? '' : '<span class="badge-off">مخفي</span>'}
         <div class="muted" style="font-size:13px">${p.price} ج ${p.old_price > p.price ? `(قبل: ${p.old_price})` : ''} | 🎨 ${p.colors.length} ألوان | 📏 ${p.sizes.join('، ')}</div>
       </div>
       <button class="btn-mini btn-ok f-feat" title="منتج مميز (يظهر أول واحد)">⭐</button>
@@ -420,7 +421,7 @@ async function loadProducts() {
       <button class="btn-mini btn-del">حذف 🗑</button>`;
     div.querySelector('.btn-edit').onclick = () => {
       $('pId').value = p.id;
-      $('pName').value = p.name; $('pDesc').value = p.description || '';
+      $('pName').value = p.name; $('pDesc').value = p.description || ''; $('pVideo').value = p.video || '';
       $('pPrice').value = p.price; $('pOld').value = p.old_price || '';
       $('pSizes').value = p.sizes.join(',');
       $('pStock').value = p.stock; $('pActive').checked = !!p.active; $('pFeatured').checked = !!p.featured;
@@ -433,7 +434,7 @@ async function loadProducts() {
     };
     div.querySelector('.f-feat').onclick = async () => {
       await api('/api/admin/products/' + p.id, 'PUT', {
-        name: p.name, description: p.description || '', price: p.price, old_price: p.old_price || 0,
+        name: p.name, description: p.description || '', video: p.video || '', price: p.price, old_price: p.old_price || 0,
         sizes: p.sizes, stock: p.stock, active: !!p.active, featured: !p.featured, colors: p.colors
       });
       loadProducts();
