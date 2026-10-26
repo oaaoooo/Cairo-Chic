@@ -20,6 +20,7 @@ const SETTINGS_KEYS = [
   't1i', 't1t', 't1d', 't2i', 't2t', 't2d', 't3i', 't3t', 't3d', 't4i', 't4t', 't4d',
   'theme_primary', 'theme_dark',
   'deal_enabled', 'deal_title', 'deal_sub', 'deal_ends_at',
+  'maint_enabled', 'maint_ends_at', 'maint_msg',
   'logo_url',
   'show_reviews', 'show_coupon', 'show_features', 'show_trust', 'show_how',
   'show_faq', 'show_countdown', 'show_announce', 'show_wa'
@@ -204,6 +205,8 @@ export async function createApp({ q, sessionSecret }) {
 
   app.post('/api/order', limit('order', 10), async (c) => {
     try {
+      if ((await getSetting('maint_enabled')) === '1')
+        return c.json({ ok: false, error: 'المتجر تحت التحديث حالياً 🛠 — حاول كمان شوية' });
       const b = await c.req.json().catch(() => ({}));
       let { name, phone, governorate, area, address, notes } = b;
       name = String(name || '').trim();
@@ -649,9 +652,9 @@ export async function createApp({ q, sessionSecret }) {
         v = v.trim();
         if (v && !/^#[0-9a-fA-F]{6}$/.test(v)) continue; // ignore invalid colors
       }
-      else if (k === 'deal_enabled') v = (v === '1' || v === 'true' || v === 'on') ? '1' : '';
+      else if (k === 'deal_enabled' || k === 'maint_enabled') v = (v === '1' || v === 'true' || v === 'on') ? '1' : '';
       else if (k.startsWith('show_')) v = (v === '0') ? '0' : '1';
-      else if (k === 'deal_ends_at') v = v.trim().slice(0, 25);
+      else if (k === 'deal_ends_at' || k === 'maint_ends_at') v = v.trim().slice(0, 25);
       else if (/^[ft][1-4]i$/.test(k)) v = v.trim().slice(0, 8);
       else v = v.trim().slice(0, 500);
       await setSetting(k, v);

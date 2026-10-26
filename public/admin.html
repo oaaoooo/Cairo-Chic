@@ -321,6 +321,19 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
     </div>
 
     <div class="panel-box">
+      <h3>🛠 وضع الصيانة (إيقاف المتجر مؤقتاً)</h3>
+      <p class="hint">لو شغّلته، العملاء هيشوفوا صفحة "المتجر تحت التحديث" مع عدّاد — وانت (المسجل دخولك) هتشوف المتجر عادي عشان تحدّث منتجاتك براحتك. والطلبات بتتقفل تلقائياً طول ما الوضع شغال.</p>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sMaintEnabled" style="width:auto"> تشغيل وضع الصيانة 🛠</label>
+      <div class="grid2">
+        <label>المتجر يرجع يشتغل يوم (بتوقيت مصر)<input id="sMaintEndsAt" type="datetime-local"></label>
+        <label>رسالة الصيانة<input id="sMaintMsg" placeholder="🛠 بنحدّث المتجر دلوقتي — راجعين خلال وقت قصير 🙏"></label>
+      </div>
+      <p class="hint">💡 العدّاد بيتحسب بتوقيت مصر تلقائياً. لو سيبت التاريخ فاضي هتظهر الرسالة من غير عدّاد.</p>
+      <div class="form-error" id="setError3"></div>
+      <button class="btn btn-primary saveSettingsBtn" style="padding:12px 40px">حفظ 💾</button>
+    </div>
+
+    <div class="panel-box">
       <h3>🔑 تغيير باسورد اللوحة</h3>
       <div class="grid2">
         <label>الباسورد الحالي<input id="pwCur" type="password"></label>

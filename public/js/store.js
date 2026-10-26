@@ -53,6 +53,11 @@ async function init() {
     applyContent();
     applyDeal();
     applyVisibility();
+    if (SETTINGS.maint_enabled === '1') {
+      const me = await fetch('/api/admin/me').then(r => r.json()).catch(() => ({}));
+      if (!me.admin) { showMaintenance(); return; }
+      showMaintAdminBar();
+    }
     buildGovSelect();
     if (PRODUCTS.length) { const feat = PRODUCTS.find(p => p.featured); selectProduct(feat ? feat.id : PRODUCTS[0].id); }
     if (PRODUCTS.length > 1) renderMoreProducts();
@@ -702,6 +707,57 @@ async function doTrack() {
   } catch {
     err.textContent = 'مشكلة في الاتصال، حاول تاني';
   }
+}
+
+// ---------- Maintenance mode ----------
+// 'YYYY-MM-DDTHH:mm' wall time in Cairo -> ms (Egypt DST: last Fri Apr -> last Thu Oct)
+function cairoWallToMs(s) {
+  const m = String(s || '').match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return 0;
+  const Y = +m[1], Mo = +m[2], D = +m[3], H = +m[4], Mi = +m[5];
+  const lastWeekday = (y, mi, wd) => {
+    const d = new Date(Date.UTC(y, mi + 1, 0));
+    while (d.getUTCDay() !== wd) d.setUTCDate(d.getUTCDate() - 1);
+    return d.getUTCDate();
+  };
+  const wall = Date.UTC(Y, Mo - 1, D, H, Mi);
+  const dstStart = Date.UTC(Y, 3, lastWeekday(Y, 3, 5));
+  const dstEnd = Date.UTC(Y, 9, lastWeekday(Y, 9, 4), 24);
+  const off = (wall >= dstStart && wall < dstEnd) ? 3 : 2;
+  return wall - off * 3600e3;
+}
+
+function showMaintenance() {
+  document.title = 'المتجر تحت التحديث 🛠';
+  const msg = SETTINGS.maint_msg || '🛠 بنحدّث المتجر دلوقتي — راجعين خلال وقت قصير 🙏';
+  const endMs = cairoWallToMs(SETTINGS.maint_ends_at);
+  const showCd = endMs > Date.now();
+  const wa = SETTINGS.whatsapp
+    ? `<a class="btn btn-whatsapp" style="max-width:320px;margin:14px auto 0" href="https://wa.me/${SETTINGS.whatsapp}" target="_blank">لو مستعجل كلمنا واتساب 💬</a>` : '';
+  document.body.innerHTML = `<div class="maint-wrap">
+    <img src="${esc(SETTINGS.logo_url || '/images/logo.jpg')}" class="maint-logo" alt="">
+    <div class="maint-emoji">🛠</div>
+    <h1>${esc(SETTINGS.store_name_ar || 'كايرو شيك')}</h1>
+    <p>${esc(msg)}</p>
+    ${showCd ? '<div class="maint-cd"><div><b id="mH">00</b><span>ساعة</span></div><div><b id="mM">00</b><span>دقيقة</span></div><div><b id="mS">00</b><span>ثانية</span></div></div>' : ''}
+    ${wa}
+  </div>`;
+  if (!showCd) return;
+  const tick = () => {
+    const s = Math.max(0, Math.floor((endMs - Date.now()) / 1000));
+    $('mH').textContent = String(Math.floor(s / 3600)).padStart(2, '0');
+    $('mM').textContent = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    $('mS').textContent = String(s % 60).padStart(2, '0');
+    if (s <= 0) location.reload();
+  };
+  tick(); setInterval(tick, 1000);
+}
+
+function showMaintAdminBar() {
+  const b = document.createElement('div');
+  b.className = 'maint-adminbar';
+  b.textContent = '🛠 وضع الصيانة شغال — العملاء شايفين صفحة التحديث (انت بس شايف المتجر)';
+  document.body.appendChild(b);
 }
 
 // ---------- TikTok Pixel ----------

@@ -36,7 +36,8 @@ const FIELD_MAP = {
   sFaqTitle: 'faq_title', sMoreTitle: 'more_title',
   sFooterText: 'footer_text', sStockLine: 'stock_line', sSizeHint: 'size_hint', sCtaText: 'cta_text',
   sThemePrimary: 'theme_primary', sThemeDark: 'theme_dark',
-  sDealTitle: 'deal_title', sDealSub: 'deal_sub', sDealEndsAt: 'deal_ends_at'
+  sDealTitle: 'deal_title', sDealSub: 'deal_sub', sDealEndsAt: 'deal_ends_at',
+  sMaintMsg: 'maint_msg', sMaintEndsAt: 'maint_ends_at'
 };
 
 const VIS_MAP = {
@@ -583,6 +584,7 @@ async function loadSettings() {
   if (!s.theme_primary) $('sThemePrimary').value = '#ff7a00';
   if (!s.theme_dark) $('sThemeDark').value = '#141419';
   $('sDealEnabled').checked = s.deal_enabled === '1';
+  $('sMaintEnabled').checked = s.maint_enabled === '1';
   Object.entries(VIS_MAP).forEach(([id, key]) => { $(id).checked = s[key] !== '0'; });
   for (let i = 1; i <= 4; i++) {
     $('ff' + i + 'i').value = s['f' + i + 'i'] || '';
@@ -603,6 +605,7 @@ async function saveSettings() {
   });
   // empty color = default theme (don't force a value)
   body.deal_enabled = $('sDealEnabled').checked ? '1' : '';
+  body.maint_enabled = $('sMaintEnabled').checked ? '1' : '';
   Object.entries(VIS_MAP).forEach(([id, key]) => { body[key] = $(id).checked ? '1' : '0'; });
   for (let i = 1; i <= 4; i++) {
     body['f' + i + 'i'] = $('ff' + i + 'i').value;
@@ -614,9 +617,8 @@ async function saveSettings() {
   }
   const j = await api('/api/admin/settings', 'PUT', body);
   const msg = j.ok ? 'تم الحفظ ✅' : (j.error || 'خطأ');
-  $('setError').textContent = msg;
-  $('setError2').textContent = msg;
-  if (j.ok) setTimeout(() => { $('setError').textContent = ''; $('setError2').textContent = ''; }, 2500);
+  ['setError', 'setError2', 'setError3'].forEach(id => { const e = $(id); if (e) e.textContent = msg; });
+  if (j.ok) setTimeout(() => ['setError', 'setError2', 'setError3'].forEach(id => { const e = $(id); if (e) e.textContent = ''; }), 2500);
 }
 
 async function uploadLogo() {
