@@ -1,11 +1,12 @@
 name: Keep store warm
 
 # Free keep-alive pings (public repo = unlimited Actions minutes).
-# Hits the storefront API every 5 minutes so the Worker isolate and
-# the Neon database stay warm and first visits stay fast.
+# Hits the storefront API every 15 minutes. NOTE: do NOT ping more often -
+# Neon Free allows 100 CU-hours/month and over-pinging can exhaust it and
+# suspend the database. 15min keeps usage safely under the cap.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
