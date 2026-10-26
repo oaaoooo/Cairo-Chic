@@ -127,7 +127,7 @@ export async function createApp({ q, sessionSecret }) {
   app.get('/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
   app.get('/admin', (c) => c.redirect('/admin.html'));
 
-  app.get('/api/settings-public', async (c) => {
+  async function publicSettings() {
     const s = await getSettings();
     let govs = (await q`SELECT name, shipping FROM governorates ORDER BY sort`).rows;
     if (!govs.length) {
@@ -142,14 +142,29 @@ export async function createApp({ q, sessionSecret }) {
       shipping_others: Number(s.shipping_others || 70)
     };
     for (const k of SETTINGS_KEYS) out[k] = s[k] || '';
+    return out;
+  }
+  async function publicProducts() {
+    const { rows } = await q`SELECT * FROM products WHERE active = 1 ORDER BY featured DESC, id`;
+    return rows.map(parseProduct);
+  }
+
+  // One round-trip for first paint (settings + products together)
+  app.get('/api/bootstrap', async (c) => {
+    const [s, products] = await Promise.all([publicSettings(), publicProducts()]);
+    s.products = products;
     c.header('Cache-Control', 'public, max-age=60');
-    return c.json(out);
+    return c.json(s);
+  });
+
+  app.get('/api/settings-public', async (c) => {
+    c.header('Cache-Control', 'public, max-age=60');
+    return c.json(await publicSettings());
   });
 
   app.get('/api/products', async (c) => {
-    const { rows } = await q`SELECT * FROM products WHERE active = 1 ORDER BY featured DESC, id`;
     c.header('Cache-Control', 'public, max-age=60');
-    return c.json({ ok: true, products: rows.map(parseProduct) });
+    return c.json({ ok: true, products: await publicProducts() });
   });
 
   app.get('/img/:id', async (c) => {

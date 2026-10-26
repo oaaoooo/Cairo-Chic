@@ -1,3 +1,10 @@
+// Non-blocking font load (CSP-safe: no inline handlers)
+(function () {
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap';
+  document.head.appendChild(l);
+})();
 // ================= CAIRO CHIC - Admin =================
 const $ = (id) => document.getElementById(id);
 let STATUS_AR = {};

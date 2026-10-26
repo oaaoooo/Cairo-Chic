@@ -66,7 +66,15 @@ export function createSqliteDb() {
     return { rows: [] };
   }
 
+  const SCHEMA_V = '7';
   async function init() {
+    try {
+      const r = db.prepare(`SELECT value FROM settings WHERE key = 'schema_v'`).get();
+      if (r && r.value === SCHEMA_V) {
+        db.prepare(`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`).run();
+        return;
+      }
+    } catch { /* fresh DB */ }
     for (const stmt of DDL_SQLITE) db.exec(stmt);
     // ---- migrate old DBs: coupon columns on orders ----
     const cols = db.prepare('PRAGMA table_info(orders)').all().map(c => c.name);
@@ -79,6 +87,7 @@ export function createSqliteDb() {
     if (!cols.includes('area')) db.exec(`ALTER TABLE orders ADD COLUMN area TEXT DEFAULT ''`);
     // no delivery to Sinai — drop from existing DBs (no Sinai orders exist)
     db.prepare(`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`).run();
+    db.prepare(`INSERT INTO settings(key,value) VALUES('schema_v',?) ON CONFLICT(key) DO UPDATE SET value=?`).run(SCHEMA_V, SCHEMA_V);
     // ---- seed governorates once (from current shipping settings) ----
     const n = db.prepare('SELECT COUNT(*) c FROM governorates').get().c;
     if (!n) {

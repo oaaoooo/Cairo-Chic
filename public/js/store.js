@@ -1,3 +1,10 @@
+// Non-blocking font load (CSP-safe: no inline handlers)
+(function () {
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap';
+  document.head.appendChild(l);
+})();
 // ================= CAIRO CHIC - Storefront =================
 const $ = (id) => document.getElementById(id);
 let SETTINGS = null, PRODUCTS = [], CURRENT = null;
@@ -42,11 +49,8 @@ function shade(hex, pct) {
 
 async function init() {
   try {
-    const [s, p] = await Promise.all([
-      fetch('/api/settings-public').then(r => r.json()),
-      fetch('/api/products').then(r => r.json())
-    ]);
-    SETTINGS = s; PRODUCTS = p.products || [];
+    const s = await fetch('/api/bootstrap').then(r => r.json());
+    SETTINGS = s; PRODUCTS = s.products || [];
     loadCart(); cleanCart();
     if (SETTINGS.announcement) $('announce').textContent = SETTINGS.announcement;
     applyBrand();
@@ -68,8 +72,9 @@ async function init() {
     $('howTitle').textContent = SETTINGS.how_title || DEF_TITLES.howTitle;
     $('faqTitle').textContent = SETTINGS.faq_title || DEF_TITLES.faqTitle;
     $('moreTitle').textContent = SETTINGS.more_title || DEF_TITLES.moreTitle;
-    loadTikTokPixel(SETTINGS.tiktok_pixel);
-    track('ViewContent');
+    const loadPixel = () => { loadTikTokPixel(SETTINGS.tiktok_pixel); track('ViewContent'); };
+    if ('requestIdleCallback' in window) requestIdleCallback(loadPixel, { timeout: 3000 });
+    else setTimeout(loadPixel, 1500);
   } catch (e) {
     console.error(e);
   }

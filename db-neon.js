@@ -14,7 +14,17 @@ export function createNeonDb(url) {
     return { rows };
   }
 
+  // Bump SCHEMA_V whenever DDL/migrations below change.
+  const SCHEMA_V = '7';
   async function init() {
+    // Fast path: schema already current -> skip ~13 queries on every cold start.
+    try {
+      const v = await sql`SELECT value FROM settings WHERE key = 'schema_v'`;
+      if (v[0] && v[0].value === SCHEMA_V) {
+        await sql`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`;
+        return;
+      }
+    } catch { /* fresh DB: fall through to full init */ }
     await sql`CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL, price NUMERIC NOT NULL, old_price NUMERIC DEFAULT 0,
@@ -72,6 +82,8 @@ export function createNeonDb(url) {
         SELECT * FROM UNNEST(${names}::text[], ${ships}::numeric[], ${sorts}::int[])
         ON CONFLICT(name) DO NOTHING`;
     }
+    await sql`INSERT INTO settings(key,value) VALUES('schema_v',${SCHEMA_V})
+      ON CONFLICT(key) DO UPDATE SET value = ${SCHEMA_V}`;
   }
 
   return { q, init, pgLike: true };
