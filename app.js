@@ -13,7 +13,7 @@ import {
 // Editable settings (store data + page content + theme + deal + logo).
 // Shipping prices moved to the governorates table (per-governorate).
 const SETTINGS_KEYS = [
-  'store_name_ar', 'store_name_en', 'whatsapp', 'tiktok_pixel', 'announcement',
+  'store_name_ar', 'store_name_en', 'whatsapp', 'wa_msg', 'tiktok_pixel', 'announcement',
   'features_title', 'reviews_title', 'how_title', 'faq_title', 'more_title',
   'footer_text', 'stock_line', 'size_hint', 'cta_text',
   'f1i', 'f1t', 'f1d', 'f2i', 'f2t', 'f2d', 'f3i', 'f3t', 'f3d', 'f4i', 'f4t', 'f4d',

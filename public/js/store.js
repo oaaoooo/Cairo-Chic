@@ -655,7 +655,9 @@ function updateWaFloat() {
   if (!SETTINGS || !SETTINGS.whatsapp || !CURRENT || SETTINGS.show_wa === '0') { $('waFloat').style.display = 'none'; $('sbWaSec').style.display = 'none'; return; }
   const wa = $('waFloat');
   wa.style.display = 'flex';
-  wa.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(`أهلاً ${SETTINGS.store_name_ar || 'كايرو شيك'}، عندي استفسار عن ${CURRENT.name}`)}`;
+  const waTpl = SETTINGS.wa_msg || 'أهلاً {store}، عندي استفسار عن {product}';
+  const waMsg = waTpl.split('{store}').join(SETTINGS.store_name_ar || 'كايرو شيك').split('{product}').join(CURRENT.name);
+  wa.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(waMsg)}`;
   $('sbWaSec').style.display = '';
   $('sbWa').href = wa.href;
 }

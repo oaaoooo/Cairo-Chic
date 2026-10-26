@@ -38,7 +38,7 @@ const DEF_TRUST = [
 ];
 const FIELD_MAP = {
   sNameAr: 'store_name_ar', sNameEn: 'store_name_en', sAnnounce: 'announcement',
-  sWhatsapp: 'whatsapp', sPixel: 'tiktok_pixel',
+  sWhatsapp: 'whatsapp', sWaMsg: 'wa_msg', sPixel: 'tiktok_pixel',
   sFeaturesTitle: 'features_title', sReviewsTitle: 'reviews_title', sHowTitle: 'how_title',
   sFaqTitle: 'faq_title', sMoreTitle: 'more_title',
   sFooterText: 'footer_text', sStockLine: 'stock_line', sSizeHint: 'size_hint', sCtaText: 'cta_text',
