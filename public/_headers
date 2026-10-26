@@ -4,3 +4,6 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' https://analytics.tiktok.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://analytics.tiktok.com; frame-src https://www.youtube.com https://youtube.com https://analytics.tiktok.com; form-action 'self'; frame-ancestors 'none'
+
+/images/*
+  Cache-Control: public, max-age=86400

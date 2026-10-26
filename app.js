@@ -149,41 +149,56 @@ export async function createApp({ q, sessionSecret }) {
     return rows.map(parseProduct);
   }
 
+  // Edge-cache public GET responses in Cloudflare's cache (skipped on plain Node)
+  async function edgeCached(c, build) {
+    if (typeof caches === 'undefined' || c.req.method !== 'GET') return build();
+    const key = new Request(c.req.url, { method: 'GET' });
+    try {
+      const hit = await caches.default.match(key);
+      if (hit) return hit;
+    } catch { /* cache read failed: fall through to origin */ }
+    const resp = await build();
+    if (resp && resp.ok) {
+      try { await caches.default.put(key, resp.clone()); } catch { /* ignore */ }
+    }
+    return resp;
+  }
+
   // One round-trip for first paint (settings + products together)
-  app.get('/api/bootstrap', async (c) => {
+  app.get('/api/bootstrap', async (c) => edgeCached(c, async () => {
     const [s, products] = await Promise.all([publicSettings(), publicProducts()]);
     s.products = products;
     c.header('Cache-Control', 'public, max-age=60');
     return c.json(s);
-  });
+  }));
 
-  app.get('/api/settings-public', async (c) => {
+  app.get('/api/settings-public', async (c) => edgeCached(c, async () => {
     c.header('Cache-Control', 'public, max-age=60');
     return c.json(await publicSettings());
-  });
+  }));
 
-  app.get('/api/products', async (c) => {
+  app.get('/api/products', async (c) => edgeCached(c, async () => {
     c.header('Cache-Control', 'public, max-age=60');
     return c.json({ ok: true, products: await publicProducts() });
-  });
+  }));
 
-  app.get('/img/:id', async (c) => {
+  app.get('/img/:id', async (c) => edgeCached(c, async () => {
     const { rows } = await q`SELECT data, mime FROM product_images WHERE id = ${c.req.param('id')}`;
     if (!rows.length || !rows[0].data) return c.notFound();
     const bytes = base64ToBytes(rows[0].data);
     return new Response(bytes, {
       headers: { 'Content-Type': rows[0].mime || 'image/jpeg', 'Cache-Control': 'public, max-age=2592000' }
     });
-  });
+  }));
 
-  app.get('/img/site/:key', async (c) => {
+  app.get('/img/site/:key', async (c) => edgeCached(c, async () => {
     const { rows } = await q`SELECT data, mime FROM site_images WHERE key = ${c.req.param('key')}`;
     if (!rows.length || !rows[0].data) return c.notFound();
     const bytes = base64ToBytes(rows[0].data);
     return new Response(bytes, {
       headers: { 'Content-Type': rows[0].mime || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' }
     });
-  });
+  }));
 
   // ---------- Public: coupon validate ----------
   app.post('/api/coupon', limit('coupon', 30), async (c) => {
