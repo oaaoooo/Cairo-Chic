@@ -83,13 +83,32 @@ function showPanel() {
   loadSettings();
 }
 
+const SECTIONS = ['orders', 'products', 'govs', 'coupons', 'reviews', 'cleanup', 'settings'];
+const SECTION_TITLES = {
+  orders: '📋 الطلبات', products: '👕 المنتجات', govs: '🗺️ المحافظات والشحن',
+  coupons: '🎟️ الكوبونات', reviews: '⭐ التقييمات', cleanup: '🧹 التنظيف', settings: '⚙️ الإعدادات'
+};
+function showSection(name) {
+  const home = !name || name === 'home';
+  $('homeView').style.display = home ? '' : 'none';
+  $('backBar').style.display = home ? 'none' : '';
+  if (!home) $('pageTitle').textContent = SECTION_TITLES[name] || '';
+  SECTIONS.forEach(n => $('tab-' + n).style.display = n === name ? '' : 'none');
+  window.scrollTo({ top: 0 });
+}
+
+function setBadge(id, n) {
+  const b = $(id);
+  if (!b) return;
+  n = Number(n) || 0;
+  b.style.display = n > 0 ? '' : 'none';
+  b.textContent = n > 99 ? '+99' : n;
+}
+
 function bindPanel() {
-  const tabs = ['orders', 'products', 'govs', 'coupons', 'reviews', 'cleanup', 'settings'];
-  document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    tabs.forEach(n => $('tab-' + n).style.display = n === t.dataset.tab ? '' : 'none');
-  });
+  document.querySelectorAll('.dash-card').forEach(c => c.onclick = () => showSection(c.dataset.tab));
+  $('backHomeBtn').onclick = () => showSection('home');
+  showSection('home');
   $('logoutBtn').onclick = async () => { await api('/api/admin/logout', 'POST'); location.reload(); };
   $('refreshOrders').onclick = () => loadOrders(orderPage);
   $('statusFilter').onchange = () => loadOrders(1);
@@ -154,6 +173,7 @@ async function loadStats() {
   STATUS_AR = j.statusAr;
   $('stToday').textContent = j.today;
   $('stNew').textContent = j.byStatus.new || 0;
+  setBadge('badgeOrders', j.byStatus.new);
   $('stTotal').textContent = j.total;
   $('stRevenue').textContent = Number(j.revenue).toLocaleString('en');
   const f = $('statusFilter');
@@ -283,6 +303,7 @@ async function loadStorage() {
   $('stReviews').textContent = s.reviews;
   $('stOrphans').textContent = s.orphans.count ? `${s.orphans.count} صورة (~${s.orphans.kb} KB) 🗑` : 'مفيش — كله نضيف ✨';
   $('cleanupBtn').disabled = !s.orphans.count;
+  setBadge('badgeOrphans', s.orphans.count);
   $('cleanupMsg').textContent = '';
   $('cleanupMsg').style.color = '';
 }
@@ -530,7 +551,9 @@ function starStr(n) {
 
 async function loadRevCount() {
   const j = await api('/api/admin/reviews?filter=pending');
-  if (j.ok) $('revPendCount').textContent = j.reviews.length;
+  if (!j.ok) return;
+  $('revPendCount').textContent = j.reviews.length;
+  setBadge('badgeReviews', j.reviews.length);
 }
 
 async function loadReviews() {

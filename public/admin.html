@@ -45,6 +45,16 @@ tr:hover td { background: #fafafa; }
 .table-wrap { overflow-x: auto; }
 .btn-mini:disabled { opacity: .4; cursor: default; }
 .table-wrap input, .table-wrap select { font-family: inherit; padding: 7px 9px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
+.dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+.dash-card { position: relative; background: #fff; border: 2px solid #eee; border-radius: 14px; padding: 22px 12px; cursor: pointer; font-family: inherit; text-align: center; transition: .15s; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.dash-card:hover { border-color: var(--orange); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255,122,0,.2); }
+.dash-card .emoji { font-size: 44px; display: block; }
+.dash-card b { display: block; font-size: 17px; margin: 8px 0 2px; }
+.dash-card span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.dash-badge { position: absolute; top: 10px; left: 10px; background: var(--red); color: #fff; font-size: 12px; font-weight: 900; min-width: 24px; height: 24px; line-height: 24px; border-radius: 12px; padding: 0 6px; }
+.back-bar { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+.back-bar h3 { margin: 0; font-size: 18px; }
+@media (max-width: 700px) { .dash-grid { grid-template-columns: repeat(2, 1fr); } }
 .rev-card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
 .rev-card .stars { color: #f5a623; font-size: 18px; }
 .rev-card p { margin: 6px 0; font-weight: 600; }
@@ -88,6 +98,7 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
     </div>
   </div>
 
+  <div id="homeView">
   <div class="stats">
     <div class="stat"><b id="stToday">0</b><span>طلبات النهاردة</span></div>
     <div class="stat"><b id="stNew">0</b><span>طلبات جديدة 🆕</span></div>
@@ -95,14 +106,19 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
     <div class="stat"><b><span id="stRevenue">0</span> ج</b><span>إجمالي المبيعات (غير الملغي)</span></div>
   </div>
 
-  <div class="tabs">
-    <button class="tab active" data-tab="orders">📋 الطلبات</button>
-    <button class="tab" data-tab="products">👕 المنتجات</button>
-    <button class="tab" data-tab="govs">🗺️ المحافظات والشحن</button>
-    <button class="tab" data-tab="coupons">🎟️ الكوبونات</button>
-    <button class="tab" data-tab="reviews">⭐ التقييمات</button>
-    <button class="tab" data-tab="cleanup">🧹 التنظيف</button>
-    <button class="tab" data-tab="settings">⚙️ الإعدادات</button>
+    <div class="dash-grid">
+      <button class="dash-card" data-tab="orders"><span class="dash-badge" id="badgeOrders" style="display:none">0</span><span class="emoji">📋</span><b>الطلبات</b><span>عرض وتأكيد وحذف طلبات العملاء</span></button>
+      <button class="dash-card" data-tab="products"><span class="emoji">👕</span><b>المنتجات</b><span>إضافة وتعديل المنتجات والمميز ⭐</span></button>
+      <button class="dash-card" data-tab="govs"><span class="emoji">🗺️</span><b>المحافظات والشحن</b><span>أسعار الشحن لكل محافظة</span></button>
+      <button class="dash-card" data-tab="coupons"><span class="emoji">🎟️</span><b>الكوبونات</b><span>أكواد الخصم والعروض</span></button>
+      <button class="dash-card" data-tab="reviews"><span class="dash-badge" id="badgeReviews" style="display:none">0</span><span class="emoji">⭐</span><b>التقييمات</b><span>مراجعة ونشر تقييمات العملاء</span></button>
+      <button class="dash-card" data-tab="cleanup"><span class="dash-badge" id="badgeOrphans" style="display:none">0</span><span class="emoji">🧹</span><b>التنظيف</b><span>مسح الصور اليتيمة وتوفير مساحة</span></button>
+      <button class="dash-card" data-tab="settings"><span class="emoji">⚙️</span><b>الإعدادات</b><span>بيانات المتجر والألوان والصيانة 🛠</span></button>
+    </div>
+  </div>
+  <div class="back-bar" id="backBar" style="display:none">
+    <button class="btn-mini btn-edit" id="backHomeBtn" style="padding:9px 18px;font-size:14px">→ رجوع للرئيسية</button>
+    <h3 id="pageTitle"></h3>
   </div>
 
   <!-- ORDERS -->
