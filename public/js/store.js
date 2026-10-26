@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 let SETTINGS = null, PRODUCTS = [], CURRENT = null;
 let selColor = 0, selSize = 1, qty = 1;
 let CART = []; // [{pid, color, size, qty}]
+let LAST_ORDER = null; // {name, phone} of just-placed order
 let COUPON = null; // {code, kind, value, min_order}
 let REVIEWS = [];
 let myRating = 5;
@@ -61,6 +62,7 @@ async function init() {
     buildGovSelect();
     if (PRODUCTS.length) { const feat = PRODUCTS.find(p => p.featured); selectProduct(feat ? feat.id : PRODUCTS[0].id); }
     if (PRODUCTS.length > 1) renderMoreProducts();
+    renderSbProducts();
     $('featuresTitle').textContent = SETTINGS.features_title || DEF_TITLES.featuresTitle;
     $('reviewsTitle').textContent = SETTINGS.reviews_title || DEF_TITLES.reviewsTitle;
     $('howTitle').textContent = SETTINGS.how_title || DEF_TITLES.howTitle;
@@ -148,7 +150,9 @@ const SHOW_MAP = {
   show_how: ['howSection'],
   show_faq: ['faqSection'],
   show_countdown: ['countdownBox'],
-  show_announce: ['announce']
+  show_announce: ['announce'],
+  show_track: ['track'],
+  show_more: ['moreProducts']
 };
 // empty/missing = visible; '0' = hidden
 function applyVisibility() {
@@ -156,6 +160,11 @@ function applyVisibility() {
   Object.entries(SHOW_MAP).forEach(([key, ids]) => {
     const on = SETTINGS[key] !== '0';
     ids.forEach(id => { const el = $(id); if (el) el.style.display = on ? '' : 'none'; });
+  });
+  // sidebar links follow their sections (hidden section = hidden link)
+  const secOn = (id) => { const el = $(id); return el && el.style.display !== 'none'; };
+  document.querySelectorAll('.side-link[data-sec]').forEach(a => {
+    a.style.display = secOn(a.dataset.sec) ? '' : 'none';
   });
 }
 
@@ -237,7 +246,7 @@ function renderProduct() {
 let moreShown = 12;
 function renderMoreProducts() {
   const wrap = $('moreProducts'), grid = $('productsGrid');
-  wrap.style.display = '';
+  wrap.style.display = (SETTINGS && SETTINGS.show_more === '0') ? 'none' : '';
   moreShown = 12;
   paintMoreProducts();
 }
@@ -623,10 +632,12 @@ function startCountdown() {
 
 // ---------- UI ----------
 function updateWaFloat() {
-  if (!SETTINGS || !SETTINGS.whatsapp || !CURRENT || SETTINGS.show_wa === '0') { $('waFloat').style.display = 'none'; return; }
+  if (!SETTINGS || !SETTINGS.whatsapp || !CURRENT || SETTINGS.show_wa === '0') { $('waFloat').style.display = 'none'; $('sbWaSec').style.display = 'none'; return; }
   const wa = $('waFloat');
   wa.style.display = 'flex';
   wa.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(`أهلاً ${SETTINGS.store_name_ar || 'كايرو شيك'}، عندي استفسار عن ${CURRENT.name}`)}`;
+  $('sbWaSec').style.display = '';
+  $('sbWa').href = wa.href;
 }
 
 function bindUI() {
@@ -648,12 +659,25 @@ function bindUI() {
   document.querySelectorAll('#starsInput button').forEach(b => b.onclick = () => { myRating = Number(b.dataset.r); paintStars(); });
   $('revSubmit').onclick = submitReview;
   $('trackBtn').onclick = doTrack;
+  $('menuOpen').onclick = openSide;
+  $('sideClose').onclick = closeSide;
+  $('sideOverlay').onclick = closeSide;
+  document.querySelectorAll('.side-link').forEach(a => a.addEventListener('click', closeSide));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); } });
+  $('sbTrackBtn').onclick = doSbTrack;
+  $('sbPhone').addEventListener('input', () => {
+    $('sbPhone').value = normDigits($('sbPhone').value).replace(/\D/g, '').slice(0, 11);
+  });
   $('trackPhone').addEventListener('input', () => {
     $('trackPhone').value = normDigits($('trackPhone').value).replace(/\D/g, '').slice(0, 11);
   });
   $('trackOrderBtn').onclick = () => {
-    $('trackNo').value = $('okOrderNo').textContent.trim();
-    document.querySelector('#track').scrollIntoView({ behavior: 'smooth' });
+    openSide();
+    if (LAST_ORDER) {
+      $('sbName').value = LAST_ORDER.name;
+      $('sbPhone').value = LAST_ORDER.phone;
+      doSbTrack();
+    }
   };
   $('newOrderBtn').onclick = () => {
     $('orderSuccess').style.display = 'none';
@@ -703,6 +727,7 @@ async function submitOrder(e) {
     const j = await r.json();
     if (!j.ok) { err.textContent = j.error || 'حصل خطأ'; btn.disabled = false; btn.textContent = 'تأكيد الطلب ✅'; return; }
     track('CompletePayment', j.total, j.order_no);
+    LAST_ORDER = { name: payload.name, phone: payload.phone };
     $('orderForm').style.display = 'none';
     $('orderSuccess').style.display = '';
     $('okOrderNo').textContent = j.order_no;
@@ -723,40 +748,80 @@ async function submitOrder(e) {
   }
 }
 
-// ---------- Order tracking ----------
-async function doTrack() {
-  const err = $('trackError'), box = $('trackResult');
+// ---------- Order tracking (phone + name -> all orders) ----------
+function trackOrderHtml(o) {
+  if (o.status === 'cancelled') {
+    return `<div class="track-card"><h3>طلبك رقم <b dir="ltr">${esc(o.order_no)}</b></h3>
+      <p style="font-size:18px;font-weight:800">❌ الطلب ده ملغي</p>
+      <p class="muted">لو شايف إن ده غلط كلمنا واتساب وهنساعدك 🙏</p></div>`;
+  }
+  const steps = o.steps.map(s => `<div class="tstep ${s.done ? 'done' : ''} ${s.now ? 'now' : ''}">${s.done ? '✅' : '⬜'} ${esc(s.t)}</div>`).join('');
+  const items = o.items.map(l => `<div class="sum-line">🧾 ${esc(l.name)} — 🎨 ${esc(l.color)} | 📏 ${esc(l.size)} | × ${l.qty}</div>`).join('');
+  return `<div class="track-card"><h3>طلبك رقم <b dir="ltr">${esc(o.order_no)}</b></h3>
+    <div class="track-status">${esc(o.statusAr)}</div>
+    <div class="tsteps">${steps}</div>
+    ${items}
+    <div class="sum-line">📍 ${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}</div>
+    <div class="sum-total">الإجمالي: <b>${o.total} جنيه</b></div></div>`;
+}
+
+async function doTrackSearch(phone, name, err, box) {
   err.textContent = '';
   box.style.display = 'none';
   box.innerHTML = '';
-  const order_no = $('trackNo').value.trim().toUpperCase();
-  const phone = normDigits($('trackPhone').value).replace(/\D/g, '');
-  if (!order_no || !phone) { err.textContent = 'اكتب رقم الطلب ورقم الموبايل'; return; }
+  phone = normDigits(phone).replace(/\D/g, '');
+  name = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!phone || name.length < 3) { err.textContent = 'اكتب الاسم ورقم الموبايل اللي سجلت بيهم'; return; }
   err.textContent = 'جاري البحث... ⏳';
   try {
-    const r = await fetch(`/api/track?order_no=${encodeURIComponent(order_no)}&phone=${encodeURIComponent(phone)}`);
+    const r = await fetch(`/api/track2?phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}`);
     const j = await r.json();
     if (!j.ok) { err.textContent = j.error || 'حصل خطأ'; return; }
     err.textContent = '';
-    const o = j.order;
-    if (o.status === 'cancelled') {
-      box.innerHTML = `<div class="track-card"><h3>طلبك رقم <b dir="ltr">${esc(o.order_no)}</b></h3>
-        <p style="font-size:18px;font-weight:800">❌ الطلب ده ملغي</p>
-        <p class="muted">لو شايف إن ده غلط كلمنا واتساب وهنساعدك 🙏</p></div>`;
-    } else {
-      const steps = o.steps.map(s => `<div class="tstep ${s.done ? 'done' : ''} ${s.now ? 'now' : ''}">${s.done ? '✅' : '⬜'} ${esc(s.t)}</div>`).join('');
-      const items = o.items.map(l => `<div class="sum-line">🧾 ${esc(l.name)} — 🎨 ${esc(l.color)} | 📏 ${esc(l.size)} | × ${l.qty}</div>`).join('');
-      box.innerHTML = `<div class="track-card"><h3>طلبك رقم <b dir="ltr">${esc(o.order_no)}</b></h3>
-        <div class="track-status">${esc(o.statusAr)}</div>
-        <div class="tsteps">${steps}</div>
-        ${items}
-        <div class="sum-line">📍 ${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}</div>
-        <div class="sum-total">الإجمالي: <b>${o.total} جنيه</b></div></div>`;
-    }
+    const head = j.orders.length > 1 ? `<p class="muted" style="text-align:center">لقينا <b>${j.orders.length}</b> طلبات باسمك 👇</p>` : '';
+    box.innerHTML = head + j.orders.map(trackOrderHtml).join('');
     box.style.display = '';
   } catch {
     err.textContent = 'مشكلة في الاتصال، حاول تاني';
   }
+}
+
+function doTrack() {
+  doTrackSearch($('trackPhone').value, $('trackName').value, $('trackError'), $('trackResult'));
+}
+function doSbTrack() {
+  doTrackSearch($('sbPhone').value, $('sbName').value, $('sbTrackError'), $('sbTrackResult'));
+}
+
+// ---------- Sidebar ----------
+function openSide() {
+  renderSbProducts();
+  $('sideDrawer').classList.add('open');
+  $('sideOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeSide() {
+  $('sideDrawer').classList.remove('open');
+  $('sideOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+function renderSbProducts() {
+  const box = $('sbProducts');
+  if (!box) return;
+  box.innerHTML = '';
+  PRODUCTS.forEach(p => {
+    const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
+    const d = document.createElement('div');
+    d.className = 'sb-prod';
+    d.innerHTML = `<img src="${img}" alt="" loading="lazy" decoding="async"><div class="grow"><b>${esc(p.name)}</b><small>${p.price} جنيه</small></div>${p.video ? '<span>🎬</span>' : ''}`;
+    d.onclick = () => {
+      selectProduct(p.id);
+      renderMoreProducts();
+      closeSide();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    box.appendChild(d);
+  });
 }
 
 // ---------- Maintenance mode ----------

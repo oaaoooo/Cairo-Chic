@@ -43,7 +43,8 @@ const FIELD_MAP = {
 const VIS_MAP = {
   vReviews: 'show_reviews', vCoupon: 'show_coupon', vFeatures: 'show_features',
   vTrust: 'show_trust', vHow: 'show_how', vFaq: 'show_faq',
-  vCountdown: 'show_countdown', vAnnounce: 'show_announce', vWa: 'show_wa'
+  vCountdown: 'show_countdown', vAnnounce: 'show_announce', vWa: 'show_wa',
+  vTrack: 'show_track', vMore: 'show_more'
 };
 
 async function api(url, method = 'GET', body) {

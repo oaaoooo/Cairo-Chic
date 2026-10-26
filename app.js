@@ -23,7 +23,8 @@ const SETTINGS_KEYS = [
   'maint_enabled', 'maint_ends_at', 'maint_msg',
   'logo_url',
   'show_reviews', 'show_coupon', 'show_features', 'show_trust', 'show_how',
-  'show_faq', 'show_countdown', 'show_announce', 'show_wa'
+  'show_faq', 'show_countdown', 'show_announce', 'show_wa',
+  'show_track', 'show_more'
 ];
 
 const DEFAULT_REVIEWS = [
@@ -302,6 +303,32 @@ export async function createApp({ q, sessionSecret }) {
     { k: 'shipped', t: '🚚 طلبك في الطريق' },
     { k: 'delivered', t: '✔ طلبك وصل' }
   ];
+  const trackSteps = (status) => {
+    const idx = TRACK_STEPS.findIndex(s => s.k === status);
+    return TRACK_STEPS.map((s, i) => ({ t: s.t, done: idx >= 0 && i <= idx, now: i === idx }));
+  };
+  const trackShape = (o) => {
+    let items = [];
+    try { items = JSON.parse(o.items || '[]'); } catch { items = []; }
+    return {
+      order_no: o.order_no, status: o.status, statusAr: STATUS_AR[o.status] || o.status,
+      name: o.name, governorate: o.governorate, area: o.area || '',
+      total: Number(o.total), created_at: o.created_at,
+      items: items.map(l => ({ name: l.name, color: l.color, size: l.size, qty: l.qty })),
+      steps: trackSteps(o.status)
+    };
+  };
+  const normName = (s) => String(s || '').trim().replace(/\s+/g, ' ');
+  app.get('/api/track2', limit('track', 20), async (c) => {
+    const phone = normalizePhone(c.req.query('phone'));
+    const name = normName(c.req.query('name'));
+    if (!phone || name.length < 3) return c.json({ ok: false, error: 'اكتب الاسم ورقم الموبايل اللي سجلت بيهم' });
+    const { rows } = await q`SELECT order_no, status, name, governorate, area, total, items, created_at
+      FROM orders WHERE phone = ${phone} ORDER BY id DESC LIMIT 20`;
+    const mine = rows.filter(o => normName(o.name) === name);
+    if (!mine.length) return c.json({ ok: false, error: 'مفيش طلبات بالبيانات دي — تأكد من الاسم ورقم الموبايل' });
+    return c.json({ ok: true, orders: mine.map(trackShape) });
+  });
   app.get('/api/track', limit('track', 20), async (c) => {
     const order_no = String(c.req.query('order_no') || '').trim().toUpperCase();
     const phone = normalizePhone(c.req.query('phone'));

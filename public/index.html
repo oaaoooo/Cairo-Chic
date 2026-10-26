@@ -34,7 +34,7 @@
       </div>
     </div>
     <div class="header-actions">
-      <a href="#track" class="btn btn-ghost btn-sm" id="trackLink" style="width:auto;margin:0;padding:9px 14px">📦 تتبّع</a>
+      <button class="cart-btn" id="menuOpen" title="القائمة">☰</button>
       <button class="cart-btn" id="cartOpen" title="سلة المشتريات">🛒<span class="cart-badge" id="cartBadge">0</span></button>
       <a href="#order" class="btn btn-primary btn-sm" data-cta>اطلب دلوقتي 🔥</a>
     </div>
@@ -206,9 +206,9 @@
   <!-- ===== TRACK ORDER ===== -->
   <section class="section order-section" id="track">
     <h2>📦 تتبّع طلبك</h2>
-    <p class="muted" style="text-align:center;margin-bottom:14px">اكتب رقم الطلب ورقم الموبايل اللي سجلت بيه عشان تعرف طلبك وصل فين</p>
+    <p class="muted" style="text-align:center;margin-bottom:14px">اكتب اسمك ورقم الموبايل اللي سجلت بيهم وهتشوف كل طلباتك وحالة كل واحد فيهم</p>
     <div class="track-box">
-      <input type="text" id="trackNo" placeholder="رقم الطلب (مثال: CC-100072)" dir="ltr">
+      <input type="text" id="trackName" placeholder="الاسم اللي سجلت بيه">
       <input type="tel" id="trackPhone" inputmode="numeric" placeholder="رقم الموبايل" maxlength="11" dir="ltr">
       <button type="button" class="btn btn-primary" id="trackBtn">تتبّع 🔍</button>
     </div>
@@ -258,6 +258,36 @@
   <a href="#order" class="btn btn-primary" data-cta>اطلب الآن 🛒</a>
 </div>
 
+<div class="cart-overlay" id="sideOverlay"></div>
+<aside class="side-drawer" id="sideDrawer" aria-label="القائمة الجانبية">
+  <div class="cart-head"><b>🦅 <span class="brand-ar">كايرو شيك</span></b><button id="sideClose" type="button">✕</button></div>
+  <div class="side-body">
+    <div class="side-sec">
+      <b>📦 تتبّع طلبك</b>
+      <p class="muted" style="font-size:12px;margin-bottom:8px">اكتب اسمك ورقم موبايلك اللي سجلت بيهم</p>
+      <input type="text" id="sbName" placeholder="الاسم">
+      <input type="tel" id="sbPhone" inputmode="numeric" placeholder="رقم الموبايل" maxlength="11" dir="ltr">
+      <div class="form-error" id="sbTrackError"></div>
+      <button type="button" class="btn btn-primary" id="sbTrackBtn" style="width:100%">تتبّع 🔍</button>
+      <div id="sbTrackResult"></div>
+    </div>
+    <div class="side-sec">
+      <b>🛍 منتجاتنا</b>
+      <div id="sbProducts"></div>
+    </div>
+    <div class="side-sec">
+      <b>🔗 أقسام المتجر</b>
+      <a href="#howSection" class="side-link" data-sec="howSection">📝 إزاي تستلم طلبك</a>
+      <a href="#faqSection" class="side-link" data-sec="faqSection">❓ الأسئلة الشائعة</a>
+      <a href="#reviewsSection" class="side-link" data-sec="reviewsSection">⭐ تقييمات عملائنا</a>
+      <a href="#order" class="side-link">📋 اطلب دلوقتي</a>
+    </div>
+    <div class="side-sec" id="sbWaSec" style="display:none">
+      <a class="btn btn-whatsapp" id="sbWa" href="#" target="_blank">كلمنا واتساب 💬</a>
+    </div>
+    <p class="muted" style="text-align:center;font-size:12px;margin-top:10px">💵 الدفع عند الاستلام — 🚚 شحن لكل مصر</p>
+  </div>
+</aside>
 <div class="cart-overlay" id="cartOverlay"></div>
 <aside class="cart-drawer" id="cartDrawer" aria-label="سلة المشتريات">
   <div class="cart-head"><b>🛒 سلة المشتريات (<span id="cartCount2">0</span>)</b><button id="cartClose" type="button">✕</button></div>

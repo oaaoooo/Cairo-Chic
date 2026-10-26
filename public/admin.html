@@ -15,11 +15,11 @@
 .tab { border: none; background: #e9e9ee; padding: 10px 22px; border-radius: 10px; font-family: inherit; font-weight: 800; cursor: pointer; font-size: 15px; }
 .tab.active { background: var(--dark); color: #fff; }
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-.stat { background: #fff; border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.stat { background: #fff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
 .stat b { font-size: 26px; display: block; }
 .stat span { color: var(--muted); font-size: 13px; font-weight: 700; }
 table { width: 100%; background: #fff; border-radius: 12px; overflow: hidden; border-collapse: collapse; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
-th, td { padding: 10px 8px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top; }
+th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top; }
 th { background: var(--dark); color: #fff; font-size: 13px; }
 tr:hover td { background: #fafafa; }
 .status-select { font-family: inherit; font-weight: 700; padding: 6px; border-radius: 8px; border: 2px solid #ddd; font-size: 13px; }
@@ -30,9 +30,9 @@ tr:hover td { background: #fafafa; }
 .btn-wa { background: #e6f9ee; color: #0d9b4d; text-decoration: none; display: inline-block; }
 .filter-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
 .filter-row select, .panel-box input, .panel-box select, .panel-box textarea { font-family: inherit; padding: 10px 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 15px; }
-.panel-box { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
-.panel-box h3 { margin-bottom: 12px; }
-.panel-box label { display: block; font-weight: 800; margin-bottom: 12px; font-size: 14px; }
+.panel-box { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.panel-box h3 { margin-bottom: 10px; font-size: 17px; }
+.panel-box label { display: block; font-weight: 800; margin-bottom: 10px; font-size: 13px; }
 .panel-box input, .panel-box textarea, .panel-box select { width: 100%; margin-top: 4px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -46,11 +46,11 @@ tr:hover td { background: #fafafa; }
 .btn-mini:disabled { opacity: .4; cursor: default; }
 .table-wrap input, .table-wrap select { font-family: inherit; padding: 7px 9px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
 .dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
-.dash-card { position: relative; background: #fff; border: 2px solid #eee; border-radius: 14px; padding: 22px 12px; cursor: pointer; font-family: inherit; text-align: center; transition: .15s; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.dash-card { position: relative; background: #fff; border: 2px solid #eee; border-radius: 14px; padding: 16px 10px; cursor: pointer; font-family: inherit; text-align: center; transition: .15s; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
 .dash-card:hover { border-color: var(--orange); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255,122,0,.2); }
-.dash-card .emoji { font-size: 44px; display: block; }
-.dash-card b { display: block; font-size: 17px; margin: 8px 0 2px; }
-.dash-card span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.dash-card .emoji { font-size: 36px; display: block; }
+.dash-card b { display: block; font-size: 15px; margin: 6px 0 2px; }
+.dash-card span { color: var(--muted); font-size: 11px; font-weight: 600; }
 .dash-badge { position: absolute; top: 10px; left: 10px; background: var(--red); color: #fff; font-size: 12px; font-weight: 900; min-width: 24px; height: 24px; line-height: 24px; border-radius: 12px; padding: 0 6px; }
 .back-bar { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
 .back-bar h3 { margin: 0; font-size: 18px; }
@@ -86,9 +86,9 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
   .login-card { margin: 40px auto; padding: 22px 18px; }
   /* dashboard cards: compact 2-col */
   .dash-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .dash-card { padding: 14px 8px; }
-  .dash-card .emoji { font-size: 34px; }
-  .dash-card b { font-size: 14px; }
+  .dash-card { padding: 10px 6px; }
+  .dash-card .emoji { font-size: 28px; }
+  .dash-card b { font-size: 13px; }
   .dash-card span { font-size: 11px; }
   /* tables -> stacked cards */
   #tab-orders table, #tab-orders thead, #tab-orders tbody, #tab-orders th, #tab-orders td, #tab-orders tr,
@@ -360,6 +360,8 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
         <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="vCountdown" checked style="width:auto"> ⏳ عدّاد النهاردة</label>
         <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="vAnnounce" checked style="width:auto"> 📢 شريط الإعلان</label>
         <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="vWa" checked style="width:auto"> 💬 زرار الواتساب</label>
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="vTrack" checked style="width:auto"> 📦 قسم تتبع الطلب</label>
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="vMore" checked style="width:auto"> 🛍️ قسم منتجات تانية</label>
       </div>
     </div>
 
