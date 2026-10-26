@@ -165,22 +165,22 @@ export async function createApp({ q, sessionSecret }) {
   }
 
   // One round-trip for first paint (settings + products together)
-  app.get('/api/bootstrap', async (c) => edgeCached(c, async () => {
+  app.get('/api/bootstrap', async (c) => {
     const [s, products] = await Promise.all([publicSettings(), publicProducts()]);
     s.products = products;
     c.header('Cache-Control', 'public, max-age=60');
     return c.json(s);
-  }));
+  });
 
-  app.get('/api/settings-public', async (c) => edgeCached(c, async () => {
+  app.get('/api/settings-public', async (c) => {
     c.header('Cache-Control', 'public, max-age=60');
     return c.json(await publicSettings());
-  }));
+  });
 
-  app.get('/api/products', async (c) => edgeCached(c, async () => {
+  app.get('/api/products', async (c) => {
     c.header('Cache-Control', 'public, max-age=60');
     return c.json({ ok: true, products: await publicProducts() });
-  }));
+  });
 
   app.get('/img/:id', async (c) => edgeCached(c, async () => {
     const { rows } = await q`SELECT data, mime FROM product_images WHERE id = ${c.req.param('id')}`;
