@@ -265,3 +265,59 @@ body { font-family: 'Cairo', Tahoma, sans-serif; background: var(--bg); color: v
 .sb-prod img { width: 46px; height: 58px; object-fit: cover; border-radius: 8px; }
 .sb-prod .grow { flex: 1; font-size: 14px; }
 .sb-prod small { display: block; color: var(--orange-dark); font-weight: 800; }
+
+/* v3.5: compact by importance - first screen shows product + price + CTA */
+.main-img-wrap { background: #f3efe9; }
+@media (max-width: 820px) {
+  .container { padding: 0 12px; }
+  .announce { font-size: 12px; padding: 6px 10px; }
+  .logo { width: 40px; height: 40px; }
+  .brand-ar { font-size: 16px; }
+  .hero { padding: 14px; gap: 14px; margin-top: 12px; }
+  .main-img-wrap img { aspect-ratio: 2/3; max-height: 44vh; width: auto; max-width: 100%; margin: 0 auto; }
+  .thumbs img { width: 54px; height: 72px; }
+  .discount-badge { font-size: 13px; padding: 5px 12px; }
+  .buy-box h1 { font-size: 19px; }
+  .short-desc { font-size: 13px; margin-bottom: 6px; }
+  .price-row { margin: 6px 0; gap: 8px; }
+  .price-now { font-size: 27px; }
+  .save { font-size: 12px; }
+  .countdown-box { padding: 8px 12px; margin: 8px 0; font-size: 14px; }
+  .countdown { font-size: 18px; }
+  .opt-label { margin: 8px 0 5px; font-size: 14px; }
+  .color-btn, .size-btn { padding: 7px 13px; font-size: 14px; }
+  .size-hint, .stock-line { font-size: 12px; }
+  .qty button { width: 38px; height: 38px; }
+  .btn-big { padding: 13px 16px; font-size: 15px; margin-top: 10px; }
+  .btn-cart { padding: 12px 10px; font-size: 14px; }
+  .trust { grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+  .trust-item { padding: 10px 4px; font-size: 18px; }
+  .trust-item b { font-size: 11px; }
+  .trust-item span { font-size: 10px; }
+  .section { margin-top: 22px; }
+  .section h2 { font-size: 17px; margin-bottom: 10px; }
+  .feature { padding: 10px 8px; font-size: 24px; }
+  .feature b { font-size: 13px; }
+  .feature span { font-size: 12px; }
+  .step { padding: 14px; }
+  .step span:first-child { width: 36px; height: 36px; line-height: 36px; font-size: 17px; }
+  .review { padding: 10px 12px; }
+  .products-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .pcard .pbody { padding: 8px; }
+  .pcard .pbody b { font-size: 13px; }
+  .pcard .pprice { font-size: 15px; }
+  .pcard .btn { padding: 7px 12px; font-size: 13px; }
+  .faq-q { padding: 12px 14px; font-size: 14px; }
+  .order-section { padding: 16px; }
+  #orderForm input, #orderForm select { padding: 11px; font-size: 14px; }
+  .track-box input { padding: 11px; font-size: 14px; }
+  .track-box button { padding: 11px 22px; }
+  .deal { padding: 16px; margin-top: 14px; }
+  .deal-fire { font-size: 30px; }
+  .deal-body h3 { font-size: 17px; }
+  .footer { padding: 20px 0; margin-top: 26px; }
+  .stars-input button { font-size: 26px; }
+}
+@media (min-width: 821px) {
+  .main-img-wrap img { max-height: 560px; width: auto; max-width: 100%; margin: 0 auto; }
+}

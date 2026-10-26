@@ -138,6 +138,27 @@
     <div class="products-grid" id="productsGrid"></div>
   </section>
 
+  <!-- ===== REVIEWS ===== -->
+  <section class="section" id="reviewsSection">
+    <h2 id="reviewsTitle">عملائنا بيقولوا إيه؟ ⭐</h2>
+    <div class="reviews" id="reviewsGrid">
+      <div class="review"><div class="stars">★★★★★</div><p>"الخامة تقيلة فعلاً والتلبيس مظبوط، أحسن ترنج جبته الشتا ده."</p><b>— أحمد م. | القاهرة</b></div>
+      <div class="review"><div class="stars">★★★★★</div><p>"طلبت الأسود، وصل في 3 أيام والتغليف كان محترم. شكراً كايرو شيك."</p><b>— مصطفى س. | الجيزة</b></div>
+      <div class="review"><div class="stars">★★★★★</div><p>"المقاس طلع مظبوط واللون البيج شيك أوي على الطبيعة."</p><b>— كريم ع. | الأسكندرية</b></div>
+    </div>
+    <div class="review-form">
+      <h3>عجبك المنتج؟ قيّمه وخلّي غيرك يستفيد ⭐</h3>
+      <div class="stars-input" id="starsInput">
+        <button type="button" data-r="1">★</button><button type="button" data-r="2">★</button><button type="button" data-r="3">★</button><button type="button" data-r="4">★</button><button type="button" data-r="5" class="on">★</button>
+      </div>
+      <input type="text" id="revName" placeholder="اسمك" maxlength="60">
+      <textarea id="revComment" rows="2" placeholder="اكتب رأيك في المنتج..." maxlength="500"></textarea>
+      <div class="form-error" id="revError"></div>
+      <button type="button" class="btn btn-primary" id="revSubmit">إرسال التقييم ✅</button>
+      <small class="muted">⭐ جرّبت المنتج وعجبك؟ قيّمه وخلّي غيرك يستفيد من تجربتك 🙏</small>
+    </div>
+  </section>
+
   <!-- ===== HOW ===== -->
   <section class="section how" id="howSection">
     <h2 id="howTitle">هتستلم طلبك إزاي؟ 📝</h2>
@@ -218,26 +239,7 @@
     <div id="trackResult" style="display:none"></div>
   </section>
 
-  <!-- ===== REVIEWS ===== -->
-  <section class="section" id="reviewsSection">
-    <h2 id="reviewsTitle">عملائنا بيقولوا إيه؟ ⭐</h2>
-    <div class="reviews" id="reviewsGrid">
-      <div class="review"><div class="stars">★★★★★</div><p>"الخامة تقيلة فعلاً والتلبيس مظبوط، أحسن ترنج جبته الشتا ده."</p><b>— أحمد م. | القاهرة</b></div>
-      <div class="review"><div class="stars">★★★★★</div><p>"طلبت الأسود، وصل في 3 أيام والتغليف كان محترم. شكراً كايرو شيك."</p><b>— مصطفى س. | الجيزة</b></div>
-      <div class="review"><div class="stars">★★★★★</div><p>"المقاس طلع مظبوط واللون البيج شيك أوي على الطبيعة."</p><b>— كريم ع. | الأسكندرية</b></div>
-    </div>
-    <div class="review-form">
-      <h3>عجبك المنتج؟ قيّمه وخلّي غيرك يستفيد ⭐</h3>
-      <div class="stars-input" id="starsInput">
-        <button type="button" data-r="1">★</button><button type="button" data-r="2">★</button><button type="button" data-r="3">★</button><button type="button" data-r="4">★</button><button type="button" data-r="5" class="on">★</button>
-      </div>
-      <input type="text" id="revName" placeholder="اسمك" maxlength="60">
-      <textarea id="revComment" rows="2" placeholder="اكتب رأيك في المنتج..." maxlength="500"></textarea>
-      <div class="form-error" id="revError"></div>
-      <button type="button" class="btn btn-primary" id="revSubmit">إرسال التقييم ✅</button>
-      <small class="muted">⭐ جرّبت المنتج وعجبك؟ قيّمه وخلّي غيرك يستفيد من تجربتك 🙏</small>
-    </div>
-  </section>
+
 
 
 </main>
