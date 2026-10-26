@@ -665,6 +665,27 @@ function updateWaFloat() {
   $('sbWa').href = wa.href;
 }
 
+let revTimer = null, revLastTouch = 0;
+function startReviewsSlider() {
+  if (revTimer) return;
+  const grid = $('reviewsGrid');
+  if (grid) {
+    ['pointerdown', 'wheel', 'touchstart'].forEach(ev =>
+      grid.addEventListener(ev, () => { revLastTouch = Date.now(); }, { passive: true }));
+  }
+  revTimer = setInterval(() => {
+    if (document.hidden || Date.now() - revLastTouch < 8000) return;
+    const g = $('reviewsGrid');
+    if (!g) return;
+    const cards = g.querySelectorAll('.review');
+    if (cards.length < 2 || g.scrollWidth <= g.clientWidth + 10) return;
+    const w = cards[0].offsetWidth + 10;
+    const cur = Math.round(Math.abs(g.scrollLeft) / w);
+    const next = (cur + 1 > cards.length - 1) ? 0 : cur + 1;
+    g.scrollTo({ left: -(next * w), behavior: 'smooth' });
+  }, 3200);
+}
+
 function bindUI() {
   $('qtyPlus').onclick = () => { if (qty < 5) { qty++; $('qtyVal').textContent = qty; } };
   $('qtyMinus').onclick = () => { if (qty > 1) { qty--; $('qtyVal').textContent = qty; } };
@@ -690,6 +711,7 @@ function bindUI() {
   document.querySelectorAll('.side-link').forEach(a => a.addEventListener('click', closeSide));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); } });
   $('sbTrackBtn').onclick = doSbTrack;
+  startReviewsSlider();
   $('sbPhone').addEventListener('input', () => {
     $('sbPhone').value = normDigits($('sbPhone').value).replace(/\D/g, '').slice(0, 11);
   });
@@ -708,6 +730,8 @@ function bindUI() {
     $('orderSuccess').style.display = 'none';
     $('orderForm').style.display = '';
     $('orderForm').reset();
+    const sb = $('submitBtn');
+    if (sb) { sb.disabled = false; sb.textContent = 'تأكيد الطلب ✅'; }
     COUPON = null; $('couponMsg').textContent = '';
     updateSummary();
   };
