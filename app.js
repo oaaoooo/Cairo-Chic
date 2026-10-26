@@ -24,7 +24,7 @@ const SETTINGS_KEYS = [
   'logo_url',
   'show_reviews', 'show_coupon', 'show_features', 'show_trust', 'show_how',
   'show_faq', 'show_countdown', 'show_announce', 'show_wa',
-  'show_track', 'show_more'
+  'show_track', 'track_place', 'show_more'
 ];
 
 const DEFAULT_REVIEWS = [

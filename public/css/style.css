@@ -321,3 +321,15 @@ body { font-family: 'Cairo', Tahoma, sans-serif; background: var(--bg); color: v
 @media (min-width: 821px) {
   .main-img-wrap img { max-height: 560px; width: auto; max-width: 100%; margin: 0 auto; }
 }
+
+/* v3.6: steps row, swipeable reviews, smooth scroll */
+html { scroll-behavior: smooth; }
+@media (max-width: 820px) {
+  .how .steps { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .step { padding: 12px 6px; }
+  .step span:first-child { width: 32px; height: 32px; line-height: 32px; font-size: 16px; }
+  .step b { font-size: 12px; }
+  .step span:last-child { font-size: 11px; }
+  .reviews { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; padding-bottom: 6px; }
+  .review { min-width: 80%; scroll-snap-align: center; }
+}

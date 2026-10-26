@@ -185,6 +185,9 @@ function applyVisibility() {
   document.querySelectorAll('.side-link[data-sec]').forEach(a => {
     a.style.display = secOn(a.dataset.sec) ? '' : 'none';
   });
+  // track placement: sidebar box only when track is on + place is both (default)
+  const sbT = $('sbTrackSec');
+  if (sbT) sbT.style.display = (SETTINGS.show_track !== '0' && (SETTINGS.track_place || 'both') === 'both') ? '' : 'none';
 }
 
 function selectProduct(id) {
