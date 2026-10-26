@@ -48,33 +48,15 @@ function shade(hex, pct) {
 }
 
 async function init() {
+  // Instant paint from last visit's data, then refresh in background
+  try {
+    const cached = JSON.parse(localStorage.getItem('cc_bootstrap') || 'null');
+    if (cached && Array.isArray(cached.products)) await paintStore(cached, true);
+  } catch { /* ignore corrupt cache */ }
   try {
     const s = await fetch('/api/bootstrap').then(r => r.json());
-    SETTINGS = s; PRODUCTS = s.products || [];
-    loadCart(); cleanCart();
-    if (SETTINGS.announcement) $('announce').textContent = SETTINGS.announcement;
-    applyBrand();
-    applyTheme();
-    applyContent();
-    applyDeal();
-    applyVisibility();
-    if (SETTINGS.maint_enabled === '1') {
-      const me = await fetch('/api/admin/me').then(r => r.json()).catch(() => ({}));
-      if (!me.admin) { showMaintenance(); return; }
-      showMaintAdminBar();
-    }
-    buildGovSelect();
-    if (PRODUCTS.length) { const feat = PRODUCTS.find(p => p.featured); selectProduct(feat ? feat.id : PRODUCTS[0].id); }
-    if (PRODUCTS.length > 1) renderMoreProducts();
-    renderSbProducts();
-    $('featuresTitle').textContent = SETTINGS.features_title || DEF_TITLES.featuresTitle;
-    $('reviewsTitle').textContent = SETTINGS.reviews_title || DEF_TITLES.reviewsTitle;
-    $('howTitle').textContent = SETTINGS.how_title || DEF_TITLES.howTitle;
-    $('faqTitle').textContent = SETTINGS.faq_title || DEF_TITLES.faqTitle;
-    $('moreTitle').textContent = SETTINGS.more_title || DEF_TITLES.moreTitle;
-    const loadPixel = () => { loadTikTokPixel(SETTINGS.tiktok_pixel); track('ViewContent'); };
-    if ('requestIdleCallback' in window) requestIdleCallback(loadPixel, { timeout: 3000 });
-    else setTimeout(loadPixel, 1500);
+    try { localStorage.setItem('cc_bootstrap', JSON.stringify(s)); } catch { /* ignore */ }
+    if (await paintStore(s, false)) return;
   } catch (e) {
     console.error(e);
   }
@@ -83,6 +65,38 @@ async function init() {
   paintStars();
   renderCart();
   updateSummary();
+}
+
+async function paintStore(s, fromCache) {
+  SETTINGS = s; PRODUCTS = s.products || [];
+  loadCart(); cleanCart();
+  if (SETTINGS.announcement) $('announce').textContent = SETTINGS.announcement;
+  applyBrand();
+  applyTheme();
+  applyContent();
+  applyDeal();
+  applyVisibility();
+  if (!fromCache && SETTINGS.maint_enabled === '1') {
+    const me = await fetch('/api/admin/me').then(r => r.json()).catch(() => ({}));
+    if (!me.admin) { showMaintenance(); return true; }
+    showMaintAdminBar();
+  }
+  buildGovSelect();
+  if (PRODUCTS.length) { const feat = PRODUCTS.find(p => p.featured); selectProduct(feat ? feat.id : PRODUCTS[0].id); }
+  if (PRODUCTS.length > 1) renderMoreProducts();
+  renderSbProducts();
+  $('featuresTitle').textContent = SETTINGS.features_title || DEF_TITLES.featuresTitle;
+  $('reviewsTitle').textContent = SETTINGS.reviews_title || DEF_TITLES.reviewsTitle;
+  $('howTitle').textContent = SETTINGS.how_title || DEF_TITLES.howTitle;
+  $('faqTitle').textContent = SETTINGS.faq_title || DEF_TITLES.faqTitle;
+  $('moreTitle').textContent = SETTINGS.more_title || DEF_TITLES.moreTitle;
+  if (!window.__pxDone) {
+    window.__pxDone = true;
+    const loadPixel = () => { loadTikTokPixel(SETTINGS.tiktok_pixel); track('ViewContent'); };
+    if ('requestIdleCallback' in window) requestIdleCallback(loadPixel, { timeout: 3000 });
+    else setTimeout(loadPixel, 1500);
+  }
+  return false;
 }
 
 function applyBrand() {
@@ -444,6 +458,7 @@ function shippingFor(gov) {
 
 function buildGovSelect() {
   const sel = $('govSelect');
+  sel.querySelectorAll('option').forEach(o => { if (o.value !== '') o.remove(); });
   govList().forEach(g => {
     const o = document.createElement('option');
     o.value = g.name;
