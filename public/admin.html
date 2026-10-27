@@ -151,11 +151,12 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
 
     <div class="dash-grid">
       <button class="dash-card" data-tab="orders"><span class="dash-badge" id="badgeOrders" style="display:none">0</span><span class="emoji">📋</span><b>الطلبات</b><span>عرض وتأكيد وحذف طلبات العملاء</span></button>
-      <button class="dash-card" data-tab="products"><span class="emoji">👕</span><b>المنتجات</b><span>إضافة وتعديل المنتجات والمميز ⭐</span></button>
+      <button class="dash-card" data-tab="products"><span class="dash-badge" id="badgeStock" style="display:none">0</span><span class="emoji">👕</span><b>المنتجات</b><span>إضافة وتعديل المنتجات والمميز ⭐</span></button>
       <button class="dash-card" data-tab="govs"><span class="emoji">🗺️</span><b>المحافظات والشحن</b><span>أسعار الشحن لكل محافظة</span></button>
       <button class="dash-card" data-tab="coupons"><span class="emoji">🎟️</span><b>الكوبونات</b><span>أكواد الخصم والعروض</span></button>
       <button class="dash-card" data-tab="reviews"><span class="dash-badge" id="badgeReviews" style="display:none">0</span><span class="emoji">⭐</span><b>التقييمات</b><span>مراجعة ونشر تقييمات العملاء</span></button>
       <button class="dash-card" data-tab="cleanup"><span class="dash-badge" id="badgeOrphans" style="display:none">0</span><span class="emoji">🧹</span><b>التنظيف</b><span>مسح الصور اليتيمة وتوفير مساحة</span></button>
+      <button class="dash-card" data-tab="reports"><span class="emoji">📊</span><b>التقارير</b><span>الأرباح والأكثر مبيعًا والمحافظات</span></button>
       <button class="dash-card" data-tab="settings"><span class="emoji">⚙️</span><b>الإعدادات</b><span>بيانات المتجر والألوان والصيانة 🛠</span></button>
     </div>
   </div>
@@ -168,9 +169,16 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
   <div id="tab-orders">
     <div class="filter-row">
       <label>فلتر: <select id="statusFilter"><option value="">كل الطلبات</option></select></label>
+      <input type="search" id="orderSearch" placeholder="🔍 بحث برقم الطلب / الاسم / التليفون" style="min-width:220px">
       <button class="btn-mini btn-edit" id="refreshOrders">🔄 تحديث</button>
       <button class="btn-mini btn-edit" id="csvBtn">📥 تصدير CSV</button>
       <button class="btn-mini btn-del" id="delSelectedBtn">🗑 حذف المحدد (<span id="selCount">0</span>)</button>
+    </div>
+    <div class="filter-row" id="bulkBar" style="display:none">
+      <label>غيّر حالة المحدد (<span id="selCount2">0</span>) إلى:
+        <select id="bulkStatus"></select>
+      </label>
+      <button class="btn-mini btn-ok" id="bulkApplyBtn">تطبيق ✅</button>
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th><input type="checkbox" id="selAll" title="تحديد الكل"></th><th>رقم الطلب</th><th>التاريخ</th><th>العميل</th><th>الطلب</th><th>الإجمالي</th><th>العنوان</th><th>الحالة</th><th>إجراءات</th></tr></thead>
@@ -285,6 +293,45 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
       </div>
       <button class="btn btn-primary" id="cleanupBtn" style="padding:12px 40px">امسح الصور اليتيمة 🧹</button>
       <div class="form-error" id="cleanupMsg" style="margin-top:8px"></div>
+      <h3 style="margin-top:18px">💾 عدّاد مساحة قاعدة البيانات</h3>
+      <p class="hint" id="quotaNote">الخطة المجانية = 1 جيجا. العدّاد ده قراءة فقط ومش بيستهلك أي مساحة.</p>
+      <div class="quota-wrap">
+        <div class="quota-bar"><div class="quota-fill" id="quotaFill"></div></div>
+        <div class="quota-txt"><b id="quotaUsed">—</b><span id="quotaPct">—</span></div>
+      </div>
+      <p class="hint" id="quotaWarn" style="display:none;color:#c00;font-weight:800">⚠️ المساحة فوق 80%! امسح الطلبات الملغية القديمة والصور اليتيمة عشان تفضي مكان.</p>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div id="tab-reports" style="display:none">
+    <div class="filter-row">
+      <button class="btn-mini btn-edit" id="refreshReports">🔄 تحديث التقارير</button>
+      <span class="hint">كلها محسوبة من طلباتك الحالية — قراءة فقط ومش بتاخد أي مساحة 💾</span>
+    </div>
+    <div class="stats" id="repSummary" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><b id="repWeek">0 ج</b><span>مبيعات آخر 7 أيام</span></div>
+      <div class="stat"><b id="repAvg">0 ج</b><span>متوسط قيمة الطلب</span></div>
+      <div class="stat"><b id="repDone">0%</b><span>نسبة الطلبات المكتملة ✅</span></div>
+      <div class="stat"><b id="repCancel">0%</b><span>نسبة الملغي ❌</span></div>
+    </div>
+    <div class="panel-box">
+      <h3>💰 إيراد آخر 14 يوم (غير الملغي)</h3>
+      <div class="bars" id="repDaily"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel-box">
+        <h3>📋 الطلبات حسب الحالة</h3>
+        <div class="hbars" id="repStatus"></div>
+      </div>
+      <div class="panel-box">
+        <h3>🗺️ أكثر المحافظات طلبًا</h3>
+        <div class="hbars" id="repGovs"></div>
+      </div>
+    </div>
+    <div class="panel-box">
+      <h3>🏆 أكثر المنتجات مبيعًا (بالقطع)</h3>
+      <div class="hbars" id="repTop"></div>
     </div>
   </div>
 

@@ -11,7 +11,10 @@ let booted = null;
 async function boot(env) {
   const driver = createNeonDb(env.DATABASE_URL);
   await driver.init();
-  return createApp({ q: driver.q, sessionSecret: env.SESSION_SECRET });
+  return createApp({
+    q: driver.q, sessionSecret: env.SESSION_SECRET, dbKind: 'neon',
+    getDbBytes: async () => Number((await driver.q`SELECT pg_database_size(current_database()) s`).rows[0].s)
+  });
 }
 
 export default {

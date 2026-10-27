@@ -33,7 +33,7 @@ const DEFAULT_REVIEWS = [
   { name: 'كريم ع. | الأسكندرية', rating: 5, comment: 'المقاس طلع مظبوط واللون البيج شيك أوي على الطبيعة.' }
 ];
 
-export async function createApp({ q, sessionSecret }) {
+export async function createApp({ q, sessionSecret, dbKind = 'unknown', getDbBytes = null }) {
   const app = new Hono();
 
   async function getSettings() {
@@ -433,11 +433,16 @@ export async function createApp({ q, sessionSecret }) {
 
   app.get('/api/admin/orders', requireAdmin, async (c) => {
     const status = c.req.query('status');
+    const search = (c.req.query('q') || '').trim().slice(0, 60);
     const PAGE = 50;
     const page = Math.max(1, parseInt(c.req.query('page')) || 1);
     const off = (page - 1) * PAGE;
     let rows, total;
-    if (status && ORDER_STATUSES.includes(status)) {
+    const like = `%${search}%`;
+    if (search) {
+      total = Number((await q`SELECT COUNT(*) c FROM orders WHERE order_no LIKE ${like} OR name LIKE ${like} OR phone LIKE ${like}`).rows[0].c);
+      rows = (await q`SELECT * FROM orders WHERE order_no LIKE ${like} OR name LIKE ${like} OR phone LIKE ${like} ORDER BY id DESC LIMIT ${PAGE} OFFSET ${off}`).rows;
+    } else if (status && ORDER_STATUSES.includes(status)) {
       total = Number((await q`SELECT COUNT(*) c FROM orders WHERE status = ${status}`).rows[0].c);
       rows = (await q`SELECT * FROM orders WHERE status = ${status} ORDER BY id DESC LIMIT ${PAGE} OFFSET ${off}`).rows;
     } else {
@@ -478,6 +483,22 @@ export async function createApp({ q, sessionSecret }) {
     return c.json({ ok: true, deleted: ids.length });
   });
 
+  // ---------- Admin: reports (read-only, zero storage) ----------
+  app.get('/api/admin/report', requireAdmin, async (c) => {
+    const rows = (await q`SELECT id, order_no, total, status, governorate, created_at, items, product_name, qty FROM orders ORDER BY id DESC LIMIT 5000`).rows;
+    const light = rows.map(o => {
+      let items = [];
+      try { items = JSON.parse(o.items || '[]'); } catch { items = []; }
+      if (!items.length && o.product_name) items = [{ name: o.product_name, qty: o.qty || 1 }];
+      return {
+        total: Number(o.total) || 0, status: o.status, gov: o.governorate || '—',
+        day: String(o.created_at || '').slice(0, 10),
+        items: items.map(l => ({ name: String(l.name || '—'), qty: Number(l.qty) || 1 }))
+      };
+    });
+    return c.json({ ok: true, orders: light, statusAr: STATUS_AR });
+  });
+
   // ---------- Admin: storage & cleanup ----------
   async function findOrphanImages() {
     const products = (await q`SELECT colors FROM products`).rows;
@@ -498,9 +519,13 @@ export async function createApp({ q, sessionSecret }) {
     const imgTot = (await q`SELECT COUNT(*) c, COALESCE(SUM(LENGTH(data)),0) s FROM product_images`).rows[0];
     const siteTot = (await q`SELECT COUNT(*) c, COALESCE(SUM(LENGTH(data)),0) s FROM site_images`).rows[0];
     const realKB = (b64len) => Math.round(Number(b64len) * 0.75 / 1024);
+    let dbKB = 0;
+    try { if (getDbBytes) dbKB = Math.round(Number(await getDbBytes()) / 1024); } catch { /* ignore */ }
     return c.json({
       ok: true,
+      dbKind,
       stats: {
+        dbKB,
         products: Number((await q`SELECT COUNT(*) c FROM products`).rows[0].c),
         orders: Number((await q`SELECT COUNT(*) c FROM orders`).rows[0].c),
         reviews: Number((await q`SELECT COUNT(*) c FROM reviews`).rows[0].c),

@@ -23,9 +23,19 @@ const driver = useNeon ? createNeonDb(process.env.DATABASE_URL) : createSqliteDb
 await driver.init();
 console.log('📦 Database:', useNeon ? 'Neon Postgres' : 'SQLite (local)');
 
+const dbKind = useNeon ? 'neon' : 'sqlite';
+const getDbBytes = async () => {
+  if (useNeon) return Number((await driver.q`SELECT pg_database_size(current_database()) s`).rows[0].s);
+  let bytes = 0;
+  for (const f of ['store.db', 'store.db-wal', 'store.db-shm']) {
+    try { bytes += fs.statSync(path.join(process.cwd(), 'data', f)).size; } catch { /* ignore */ }
+  }
+  return bytes;
+};
 const { app } = await createApp({
   q: driver.q,
-  sessionSecret: process.env.SESSION_SECRET || 'cairo-chic-dev-secret-CHANGE-ME'
+  sessionSecret: process.env.SESSION_SECRET || 'cairo-chic-dev-secret-CHANGE-ME',
+  dbKind, getDbBytes
 });
 
 // Static files (on Cloudflare these come from [assets] CDN instead)

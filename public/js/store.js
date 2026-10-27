@@ -48,6 +48,7 @@ function shade(hex, pct) {
 }
 
 async function init() {
+  loadFavs();
   // Instant paint from last visit's data, then refresh in background
   try {
     const cached = JSON.parse(localStorage.getItem('cc_bootstrap') || 'null');
@@ -89,6 +90,7 @@ async function paintStore(s, fromCache) {
     selectProduct(shared ? shared.id : (feat ? feat.id : PRODUCTS[0].id));
   }
   if (PRODUCTS.length > 1) renderMoreProducts();
+  paintFavs();
   renderSbProducts();
   $('featuresTitle').textContent = SETTINGS.features_title || DEF_TITLES.featuresTitle;
   $('reviewsTitle').textContent = SETTINGS.reviews_title || DEF_TITLES.reviewsTitle;
@@ -204,6 +206,8 @@ function selectProduct(id) {
   updateSummary();
   loadReviews(CURRENT.id);
   updateWaFloat();
+  pushRecent(CURRENT.id);
+  updateFavBtn();
   if (SETTINGS && SETTINGS.store_name_ar) document.title = `${SETTINGS.store_name_ar} | ${CURRENT.name} — اطلب دلوقتي`;
   try {
     const u = new URL(location.href);
@@ -323,28 +327,14 @@ function paintMoreProducts() {
   if (!rest.length) {
     grid.innerHTML = '<p class="muted" style="text-align:center;grid-column:1/-1">لا توجد منتجات مطابقة 🔍</p>';
   }
-  rest.forEach(p => {
-    const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
-    const old = Number(p.old_price) || 0;
-    const card = document.createElement('div');
-    card.className = 'pcard';
-    card.innerHTML = `
-      <div class="pcard-imgwrap"><img src="${img}" alt="${esc(p.name)}" loading="lazy" decoding="async">${p.featured ? '<span class="pcard-feat">⭐ مميز</span>' : ''}${p.video ? '<span class="pcard-vid">🎬</span>' : ''}</div>
-      <div class="pbody"><b>${esc(p.name)}</b>
-        <div class="prow">
-          <div class="pprice">${p.price} ج ${old > p.price ? `<small>${old} ج</small>` : ''}</div>
-          <button class="btn btn-primary">اطلب ده</button>
-        </div>
-      </div>`;
-    card.querySelector('button').onclick = () => {
-      selectProduct(p.id);
-      renderMoreProducts();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      track('AddToCart');
-    };
-    grid.appendChild(card);
-  });
+  rest.forEach(p => grid.appendChild(buildCard(p, 'اطلب ده', () => {
+    selectProduct(p.id);
+    renderMoreProducts();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    track('AddToCart');
+  })));
   $('prowCount').textContent = rest.length ? `${rest.length} منتج` : '';
+  paintRecent();
 }
 // auto-slide the single row (pauses 8s after user interaction)
 let prowTimer = null, prowLastTouch = 0;
@@ -371,6 +361,120 @@ function prowStep(dir) {
   prowLastTouch = Date.now();
   g.scrollBy({ left: dir * (card.offsetWidth + 12), behavior: 'smooth' });
 }
+
+// ---------- v4.3: size finder + wishlist + quick-view + recent (localStorage only) ----------
+function guideRows() {
+  return (CURRENT && CURRENT.size_guide && CURRENT.size_guide.length) ? CURRENT.size_guide : DEFAULT_GUIDE;
+}
+function normSize(s) {
+  return String(s || '').trim().toUpperCase().replace('XXXL', '3XL').replace('XXL', '2XL');
+}
+function findMySize() {
+  const w = Number(normDigits($('myWeight').value));
+  const box = $('sizeSuggest');
+  box.style.display = '';
+  document.querySelectorAll('#sizeRows tr').forEach(tr => tr.classList.remove('hit'));
+  if (!w || w < 30 || w > 250) { box.textContent = 'اكتب وزنك بالكيلو (من 30 لـ 250) ⚖️'; return; }
+  const g = guideRows();
+  let hit = g.find(r => w >= Number(r.from) && w <= Number(r.to));
+  let note = '';
+  if (!hit) {
+    const sorted = [...g].sort((a, b) => Number(a.from) - Number(b.from));
+    hit = w < Number(sorted[0].from) ? sorted[0] : sorted[sorted.length - 1];
+    note = w < Number(sorted[0].from) ? ' (أصغر مقاس عندنا)' : ' (أكبر مقاس عندنا — ولو بين مقاسين خد الأكبر)';
+  }
+  [...document.querySelectorAll('#sizeRows tr')].forEach(tr => {
+    if (tr.cells[0] && normSize(tr.cells[0].textContent) === normSize(hit.size)) tr.classList.add('hit');
+  });
+  const idx = (CURRENT.sizes || []).findIndex(s => normSize(s) === normSize(hit.size));
+  if (idx >= 0) { selSize = idx; renderProduct(); }
+  box.textContent = `مقاسك المقترح: ${hit.size} ✨${note}`;
+}
+// wishlist
+let FAVS = [];
+function loadFavs() { try { FAVS = JSON.parse(localStorage.getItem('cc_fav') || '[]'); } catch { FAVS = []; } }
+function saveFavs() { try { localStorage.setItem('cc_fav', JSON.stringify(FAVS)); } catch { /* ignore */ } }
+function updateFavBtn() {
+  const on = CURRENT && FAVS.includes(CURRENT.id);
+  $('favBtn').textContent = on ? '❤️' : '🤍';
+  $('favBtn').classList.toggle('on', !!on);
+  const b = $('favBadge');
+  b.style.display = FAVS.length ? '' : 'none';
+  b.textContent = FAVS.length > 99 ? '+99' : FAVS.length;
+}
+function toggleFav() {
+  if (!CURRENT) return;
+  FAVS = FAVS.includes(CURRENT.id) ? FAVS.filter(id => id !== CURRENT.id) : [...FAVS, CURRENT.id];
+  saveFavs(); updateFavBtn(); paintFavs();
+  toast(FAVS.includes(CURRENT.id) ? 'اتضافت للمفضلة ❤️' : 'اتشالت من المفضلة 🤍');
+}
+function paintFavs() {
+  updateFavBtn();
+  const grid = $('favGrid');
+  grid.innerHTML = '';
+  const list = FAVS.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  $('favSection').style.display = list.length ? '' : 'none';
+  list.forEach(p => grid.appendChild(buildCard(p, 'شوفه 👀', () => {
+    selectProduct(p.id); renderMoreProducts(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  })));
+}
+function buildCard(p, btnLabel, onBtn) {
+  const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
+  const old = Number(p.old_price) || 0;
+  const card = document.createElement('div');
+  card.className = 'pcard';
+  card.innerHTML = `
+    <div class="pcard-imgwrap"><img src="${img}" alt="${esc(p.name)}" loading="lazy" decoding="async">${p.featured ? '<span class="pcard-feat">⭐ مميز</span>' : ''}${p.video ? '<span class="pcard-vid">🎬</span>' : ''}</div>
+    <div class="pbody"><b>${esc(p.name)}</b>
+      <div class="prow">
+        <div class="pprice">${p.price} ج ${old > p.price ? `<small>${old} ج</small>` : ''}</div>
+        <button class="btn btn-primary">${esc(btnLabel)}</button>
+      </div>
+    </div>`;
+  card.querySelector('.pcard-imgwrap').onclick = () => openQV(p.id);
+  card.querySelector('.prow button').onclick = onBtn;
+  return card;
+}
+// quick view
+let QV_ID = 0;
+function openQV(pid) {
+  const p = PRODUCTS.find(x => x.id === pid);
+  if (!p) return;
+  QV_ID = pid;
+  $('qvImg').src = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
+  $('qvImg').alt = p.name;
+  $('qvName').textContent = p.name;
+  $('qvPrice').textContent = p.price + ' جنيه';
+  const old = Number(p.old_price) || 0;
+  $('qvOld').textContent = old > p.price ? old + ' جنيه' : '';
+  $('qvMeta').textContent = `🎨 ${p.colors.length} ألوان | 📏 ${(p.sizes || []).join('، ')}` + (p.stock <= 5 ? ` | ⚡ باقي ${p.stock} بس` : '');
+  $('qvModal').classList.add('show');
+}
+function closeQV() { $('qvModal').classList.remove('show'); }
+// recently viewed
+function pushRecent(pid) {
+  try {
+    let r = JSON.parse(localStorage.getItem('cc_recent') || '[]').filter(id => id !== pid);
+    r.unshift(pid);
+    localStorage.setItem('cc_recent', JSON.stringify(r.slice(0, 8)));
+  } catch { /* ignore */ }
+}
+function paintRecent() {
+  let r = [];
+  try { r = JSON.parse(localStorage.getItem('cc_recent') || '[]'); } catch { /* ignore */ }
+  const list = r.filter(id => !CURRENT || id !== CURRENT.id).map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean).slice(0, 6);
+  $('recentStrip').style.display = (moreMode === 'row' && list.length) ? '' : 'none';
+  $('recentItems').innerHTML = '';
+  list.forEach(p => {
+    const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'recent-chip';
+    b.innerHTML = `<img src="${img}" alt="" loading="lazy"><span>${esc(p.name)}</span>`;
+    b.onclick = () => { selectProduct(p.id); renderMoreProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    $('recentItems').appendChild(b);
+  });
+}
+
 
 // ---------- Product video ----------
 function ytId(url) {
@@ -777,10 +881,13 @@ function openSizeGuide() {
   const g = (CURRENT && CURRENT.size_guide && CURRENT.size_guide.length) ? CURRENT.size_guide : DEFAULT_GUIDE;
   $('sizeRows').innerHTML = g.map(r => `<tr><td><b>${esc(r.size)}</b></td><td>${esc(r.from)} – ${esc(r.to)} كجم</td></tr>`).join('');
   $('sizeProdName').textContent = CURRENT ? CURRENT.name : '';
+  $('sizeSuggest').style.display = 'none';
+  $('myWeight').value = '';
   $('sizeModal').classList.add('show');
 }
 function closeSizeGuide() { $('sizeModal').classList.remove('show'); }
 
+let lastSwipe = 0;
 function bindUI() {
   $('qtyPlus').onclick = () => { const cap = stockCap(CURRENT); if (qty < cap) { qty++; $('qtyVal').textContent = qty; } };
   $('qtyMinus').onclick = () => { if (qty > 1) { qty--; $('qtyVal').textContent = qty; } };
@@ -804,7 +911,7 @@ function bindUI() {
   $('sideClose').onclick = closeSide;
   $('sideOverlay').onclick = closeSide;
   document.querySelectorAll('.side-link').forEach(a => a.addEventListener('click', closeSide));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); $('lightbox').classList.remove('show'); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); closeQV(); $('lightbox').classList.remove('show'); } });
   $('sbTrackBtn').onclick = doSbTrack;
   startReviewsSlider();
   startProwSlider();
@@ -829,10 +936,40 @@ function bindUI() {
     try { await navigator.clipboard.writeText(link); toast('اتنسخ رابط المنتج 📋'); }
     catch { toast('انسخ الرابط من شريط المتصفح 📋'); }
   };
-  $('mainImage').onclick = () => { $('lightboxImg').src = $('mainImage').src; $('lightbox').classList.add('show'); };
+  $('mainImage').onclick = () => { if (Date.now() - lastSwipe < 400) return; $('lightboxImg').src = $('mainImage').src; $('lightbox').classList.add('show'); };
   $('lightbox').onclick = () => $('lightbox').classList.remove('show');
   window.addEventListener('scroll', () => { $('topFloat').classList.toggle('show', window.scrollY > 600); }, { passive: true });
   $('topFloat').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  // v4.3: size finder + wishlist + quick-view + gallery swipe
+  $('findSizeBtn').onclick = findMySize;
+  $('myWeight').addEventListener('keydown', (e) => { if (e.key === 'Enter') findMySize(); });
+  $('favBtn').onclick = toggleFav;
+  $('favOpen').onclick = () => {
+    if (!FAVS.length) { toast('مفيش مفضلة لسه — دوس 🤍 على أي منتج يعجبك'); return; }
+    $('favSection').scrollIntoView({ behavior: 'smooth' });
+  };
+  $('favClear').onclick = () => {
+    if (!FAVS.length || !confirm('تمسح كل المفضلة؟')) return;
+    FAVS = []; saveFavs(); paintFavs();
+  };
+  $('qvClose').onclick = closeQV;
+  $('qvModal').addEventListener('click', (e) => { if (e.target.id === 'qvModal') closeQV(); });
+  $('qvGo').onclick = () => {
+    closeQV(); selectProduct(QV_ID); renderMoreProducts();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  let swipeX = null;
+  const mi = $('mainImage');
+  mi.addEventListener('touchstart', (e) => { swipeX = e.touches[0].clientX; }, { passive: true });
+  mi.addEventListener('touchend', (e) => {
+    if (swipeX === null || !CURRENT || !CURRENT.colors || CURRENT.colors.length < 2) return;
+    const dx = e.changedTouches[0].clientX - swipeX;
+    swipeX = null;
+    if (Math.abs(dx) < 40) return;
+    lastSwipe = Date.now();
+    selColor = (selColor + (dx < 0 ? 1 : -1) + CURRENT.colors.length) % CURRENT.colors.length;
+    renderProduct();
+  }, { passive: true });
   $('sbPhone').addEventListener('input', () => {
     $('sbPhone').value = normDigits($('sbPhone').value).replace(/\D/g, '').slice(0, 11);
   });

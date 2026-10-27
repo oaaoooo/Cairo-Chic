@@ -37,6 +37,7 @@
     </div>
     <div class="header-actions">
       <button class="cart-btn" id="menuOpen" title="القائمة">☰</button>
+      <button class="cart-btn" id="favOpen" title="المفضلة ❤️">🤍<span class="cart-badge" id="favBadge" style="display:none">0</span></button>
       <button class="cart-btn" id="cartOpen" title="سلة المشتريات">🛒<span class="cart-badge" id="cartBadge">0</span></button>
       <a href="#order" class="btn btn-primary btn-sm" data-cta>اطلب دلوقتي 🔥</a>
     </div>
@@ -58,7 +59,10 @@
 
     <div class="buy-box">
       <div class="feat-badge" id="featBadge" style="display:none">⭐ اختيار المتجر — الأكثر طلباً</div>
-      <h1 id="productName">ترنج V11 الشتوي 🔥</h1>
+      <div class="title-row">
+        <h1 id="productName">ترنج V11 الشتوي 🔥</h1>
+        <button type="button" class="fav-btn" id="favBtn" title="أضف للمفضلة ❤️">🤍</button>
+      </div>
       <div class="rating" id="ratingLine">★★★★★ <span>4.9 | +230 تقييم من عملائنا</span></div>
       <p class="short-desc" id="productDesc">خامة ميلتون شتوي تقيلة تدفيك، تلبيس مظبوط وشيك — فورمة طول اليوم.</p>
 
@@ -99,6 +103,15 @@
       </div>
       <div class="stock-line" id="stockLine">⚡ باقي <b>7 قطع بس</b> بالسعر ده — الكمية محدودة</div>
     </div>
+  </section>
+
+  <!-- ===== WISHLIST ===== -->
+  <section class="section" id="favSection" style="display:none">
+    <div class="sec-head">
+      <h2>منتجات عجبتك ❤️</h2>
+      <button type="button" class="showall-btn" id="favClear">مسح الكل 🗑</button>
+    </div>
+    <div class="products-carousel" id="favGrid"></div>
   </section>
 
   <!-- ===== FLASH DEAL ===== -->
@@ -149,6 +162,10 @@
         <option value="cheap">الأرخص سعرًا 💰</option>
         <option value="disc">أكبر خصم 🏷️</option>
       </select>
+    </div>
+    <div class="recent-strip" id="recentStrip" style="display:none">
+      <span class="recent-label">شفتها قبل كده 👀</span>
+      <div class="recent-items" id="recentItems"></div>
     </div>
     <div class="products-carousel" id="productsGrid"></div>
     <div class="prow-nav" id="prowNav">
@@ -280,6 +297,18 @@
 <a class="wa-float" id="waFloat" href="#" target="_blank" style="display:none" title="كلمنا واتساب">💬</a>
 <button type="button" class="top-float" id="topFloat" title="اطلع فوق ⬆️">⬆️</button>
 <div class="lightbox" id="lightbox"><img id="lightboxImg" src="" alt="تكبير الصورة"></div>
+<div class="qv-modal" id="qvModal">
+  <div class="qv-box">
+    <button type="button" class="size-close" id="qvClose">✕</button>
+    <div class="qv-imgwrap"><img id="qvImg" src="" alt=""></div>
+    <div class="qv-body">
+      <h3 id="qvName"></h3>
+      <div class="qv-price"><b id="qvPrice"></b> <small id="qvOld"></small></div>
+      <p class="muted" id="qvMeta" style="font-size:13px"></p>
+      <button type="button" class="btn btn-primary btn-big" id="qvGo">شوف المنتج 👀</button>
+    </div>
+  </div>
+</div>
 
 <div class="sticky-buy">
   <div><b><span id="stickyPrice">599</span> جنيه</b><span class="sticky-old"><span id="stickyOld">850</span> جنيه</span></div>
@@ -339,6 +368,14 @@
       <tr><th>المقاس</th><th>الوزن المناسب</th></tr>
       <tbody id="sizeRows"></tbody>
     </table>
+    <div class="size-finder">
+      <b>🎯 ساعدني أختار مقاسي:</b>
+      <div class="size-finder-row">
+        <input type="number" id="myWeight" min="30" max="250" inputmode="numeric" placeholder="وزنك بالكيلو">
+        <button type="button" class="btn btn-primary btn-sm" id="findSizeBtn">اقترح مقاسي ✨</button>
+      </div>
+      <div class="size-suggest" id="sizeSuggest" style="display:none"></div>
+    </div>
     <p class="muted" style="font-size:12px;margin:10px 0 0">* دليل استرشادي — الخامة فيها ليكرا بتريح في اللبس. لو بين مقاسين خد الأكبر ✅</p>
   </div>
 </div>

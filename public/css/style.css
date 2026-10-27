@@ -397,3 +397,55 @@ html { scroll-behavior: smooth; }
   .showall-btn { font-size: 13px; padding: 6px 14px; }
   .top-float { bottom: 152px; }
 }
+
+/* ===== v4.3: admin reports + quota + low-stock (zero storage) ===== */
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 170px; padding-top: 8px; direction: ltr; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+.bar-col .bar { width: 100%; max-width: 44px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--orange), var(--orange-dark)); min-height: 3px; }
+.bar-col .bar.zero { background: #eee; }
+.bar-col small { font-size: 10px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+.bar-col b { font-size: 10px; }
+.hbars { display: flex; flex-direction: column; gap: 8px; }
+.hbar-row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.hbar-track { background: #f0f0f0; border-radius: 8px; height: 18px; overflow: hidden; }
+.hbar-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--orange), var(--orange-dark)); min-width: 4px; }
+.hbar-fill.green { background: linear-gradient(90deg, #22c55e, #15803d); }
+.hbar-fill.red { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+.hbar-fill.blue { background: linear-gradient(90deg, #3b82f6, #1d4ed8); }
+.quota-wrap { margin: 6px 0; }
+.quota-bar { background: #f0f0f0; border-radius: 12px; height: 24px; overflow: hidden; }
+.quota-fill { height: 100%; width: 0; border-radius: 12px; background: linear-gradient(90deg, #22c55e, #15803d); transition: width .5s; }
+.quota-fill.warn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.quota-fill.danger { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+.quota-txt { display: flex; justify-content: space-between; margin-top: 4px; font-size: 14px; }
+.low-stock { border: 2px solid #ef4444 !important; background: #fef2f2 !important; }
+.badge-low { background: #ef4444; color: #fff; font-size: 12px; font-weight: 800; border-radius: 12px; padding: 2px 10px; }
+
+/* ===== v4.3: size finder + wishlist + quick-view + recent (zero storage) ===== */
+.size-finder { background: #fff7ed; border: 2px dashed var(--orange); border-radius: 12px; padding: 12px; margin-top: 12px; }
+.size-finder-row { display: flex; gap: 8px; margin-top: 8px; }
+.size-finder-row input { flex: 1; padding: 10px 14px; border: 2px solid #eee; border-radius: 10px; font-family: inherit; font-size: 15px; }
+.size-suggest { margin-top: 8px; font-weight: 800; background: #e8f9ee; border-radius: 10px; padding: 10px; text-align: center; }
+#sizeRows tr.hit td { background: #e8f9ee !important; font-weight: 900; }
+.title-row { display: flex; align-items: flex-start; gap: 8px; }
+.title-row h1 { flex: 1; }
+.fav-btn { border: 2px solid #eee; background: #fff; border-radius: 50%; width: 46px; height: 46px;
+  font-size: 24px; cursor: pointer; flex-shrink: 0; font-family: inherit; }
+.fav-btn.on { border-color: #ef4444; background: #fef2f2; }
+.recent-strip { margin-bottom: 10px; }
+.recent-label { font-size: 13px; font-weight: 800; color: var(--muted); }
+.recent-items { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px; scrollbar-width: none; }
+.recent-items::-webkit-scrollbar { display: none; }
+.recent-chip { display: flex; align-items: center; gap: 6px; border: 2px solid #eee; background: #fff;
+  border-radius: 24px; padding: 4px 12px 4px 4px; cursor: pointer; font-family: inherit; white-space: nowrap; font-size: 13px; font-weight: 700; }
+.recent-chip img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
+.qv-modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center;
+  justify-content: center; z-index: 400; padding: 18px; }
+.qv-modal.show { display: flex; }
+.qv-box { background: #fff; border-radius: 16px; max-width: 420px; width: 100%; overflow: hidden; position: relative; max-height: 92vh; overflow-y: auto; }
+.qv-imgwrap img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
+.qv-body { padding: 14px 16px 18px; }
+.qv-body h3 { margin: 0 0 6px; font-size: 18px; }
+.qv-price b { font-size: 22px; color: var(--orange-dark); }
+.qv-price small { color: var(--muted); text-decoration: line-through; }
+.pcard-imgwrap { cursor: pointer; }

@@ -89,12 +89,14 @@ function showPanel() {
   loadRevCount();
   loadStorage();
   loadSettings();
+  loadReport();
 }
 
-const SECTIONS = ['orders', 'products', 'govs', 'coupons', 'reviews', 'cleanup', 'settings'];
+const SECTIONS = ['orders', 'products', 'govs', 'coupons', 'reviews', 'cleanup', 'reports', 'settings'];
 const SECTION_TITLES = {
   orders: '📋 الطلبات', products: '👕 المنتجات', govs: '🗺️ المحافظات والشحن',
-  coupons: '🎟️ الكوبونات', reviews: '⭐ التقييمات', cleanup: '🧹 التنظيف', settings: '⚙️ الإعدادات'
+  coupons: '🎟️ الكوبونات', reviews: '⭐ التقييمات', cleanup: '🧹 التنظيف',
+  reports: '📊 التقارير', settings: '⚙️ الإعدادات'
 };
 function showSection(name) {
   const home = !name || name === 'home';
@@ -120,7 +122,11 @@ function bindPanel() {
   $('logoutBtn').onclick = async () => { await api('/api/admin/logout', 'POST'); location.reload(); };
   $('refreshOrders').onclick = () => loadOrders(orderPage);
   $('statusFilter').onchange = () => loadOrders(1);
+  let searchT = null;
+  $('orderSearch').oninput = () => { clearTimeout(searchT); searchT = setTimeout(() => loadOrders(1), 500); };
   $('delSelectedBtn').onclick = delSelected;
+  $('bulkApplyBtn').onclick = bulkStatus;
+  $('refreshReports').onclick = loadReport;
   $('csvBtn').onclick = exportCsv;
   $('printSlipBtn').onclick = printSlip;
   startNotify();
@@ -202,7 +208,8 @@ let orderPage = 1, orderPages = 1;
 async function loadOrders(page = 1) {
   orderPage = Math.max(1, page);
   const st = $('statusFilter').value;
-  const j = await api('/api/admin/orders?page=' + orderPage + (st ? '&status=' + st : ''));
+  const q = ($('orderSearch').value || '').trim();
+  const j = await api('/api/admin/orders?page=' + orderPage + (st ? '&status=' + st : '') + (q ? '&q=' + encodeURIComponent(q) : ''));
   if (!j.ok) return;
   if (!j.orders.length && orderPage > 1) return loadOrders(orderPage - 1);
   STATUS_AR = j.statusAr;
@@ -240,6 +247,7 @@ async function loadOrders(page = 1) {
       <td data-l="إجراءات" style="white-space:nowrap">
         <button class="btn-mini btn-edit" data-view="${o.id}">👁 عرض</button>
         <a class="btn-mini btn-wa" target="_blank" href="https://wa.me/2${o.phone}?text=${waText}">واتساب 💬</a>
+        <button class="btn-mini btn-ok" data-copy="${o.id}" title="نسخ بيانات العميل والعنوان">📋 نسخ</button>
         <button class="btn-mini btn-del" data-del="${o.id}">حذف</button>
       </td>`;
     tb.appendChild(tr);
@@ -249,6 +257,14 @@ async function loadOrders(page = 1) {
     loadStats();
   });
   tb.querySelectorAll('[data-view]').forEach(b => b.onclick = () => openOrder(Number(b.dataset.view)));
+  tb.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => {
+    const o = ORDERS_CACHE.find(x => x.id === Number(b.dataset.copy));
+    if (!o) return;
+    const items = (o.items && o.items.length ? o.items : [{ name: o.product_name, color: o.color, size: o.size, qty: o.qty }]);
+    const txt = `طلب ${o.order_no}\nالاسم: ${o.name}\nالتليفون: ${o.phone}\nالعنوان: ${o.governorate}${o.area ? ' — ' + o.area : ''} — ${o.address}\nالطلب: ${items.map(l => `${l.name} (${l.color}/${l.size} ×${l.qty})`).join(' + ')}\nالإجمالي: ${o.total} جنيه (شحن ${o.shipping})`;
+    try { await navigator.clipboard.writeText(txt); b.textContent = '✅ اتنسخ'; setTimeout(() => b.textContent = '📋 نسخ', 1500); }
+    catch { alert('تعذر النسخ — انسخ يدوياً'); }
+  });
   tb.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('تحذف الطلب ده نهائياً؟')) return;
     await api('/api/admin/orders/' + b.dataset.del, 'DELETE');
@@ -407,7 +423,23 @@ async function delSelected() {
 }
 
 function updateSelCount() {
-  $('selCount').textContent = document.querySelectorAll('.o-sel:checked').length;
+  const n = document.querySelectorAll('.o-sel:checked').length;
+  $('selCount').textContent = n;
+  $('selCount2').textContent = n;
+  $('bulkBar').style.display = n ? '' : 'none';
+  const bs = $('bulkStatus');
+  if (!bs.options.length) Object.entries(STATUS_AR).forEach(([k, v]) => {
+    const o = document.createElement('option'); o.value = k; o.textContent = v; bs.appendChild(o);
+  });
+}
+
+async function bulkStatus() {
+  const ids = [...document.querySelectorAll('.o-sel:checked')].map(x => Number(x.dataset.id));
+  if (!ids.length) return;
+  const st = $('bulkStatus').value;
+  if (!confirm(`تغيّر حالة ${ids.length} طلب إلى "${STATUS_AR[st]}"؟`)) return;
+  for (const id of ids) await api('/api/admin/orders/' + id, 'PATCH', { status: st });
+  loadOrders(orderPage); loadStats();
 }
 
 // ---------- Storage & cleanup ----------
@@ -425,6 +457,19 @@ async function loadStorage() {
   setBadge('badgeOrphans', s.orphans.count);
   $('cleanupMsg').textContent = '';
   $('cleanupMsg').style.color = '';
+  // quota meter (Neon free = 1 GB)
+  const QUOTA_KB = 1024 * 1024;
+  const usedKB = s.dbKB || 0;
+  const pct = Math.min(100, usedKB / QUOTA_KB * 100);
+  const fmtMB = (kb) => kb >= 1024 ? (kb / 1024).toFixed(1) + ' ميجا' : kb + ' كيلو';
+  $('quotaFill').style.width = Math.max(pct, 0.5) + '%';
+  $('quotaFill').className = 'quota-fill' + (pct >= 80 ? ' danger' : pct >= 50 ? ' warn' : '');
+  $('quotaUsed').textContent = `مستخدم: ${fmtMB(usedKB)} من 1 جيجا`;
+  $('quotaPct').textContent = pct < 0.1 ? 'أقل من 0.1%' : pct.toFixed(1) + '%';
+  $('quotaWarn').style.display = pct >= 80 ? '' : 'none';
+  $('quotaNote').textContent = j.dbKind === 'neon'
+    ? 'الخطة المجانية = 1 جيجا. العدّاد ده قراءة فقط ومش بيستهلك أي مساحة.'
+    : 'سيرفر محلي (SQLite) — حجم ملف قاعدة البيانات على جهازك. على الموقع الحقيقي الكوتا = 1 جيجا مجانًا.';
 }
 
 async function runCleanup() {
@@ -540,6 +585,58 @@ async function saveProduct() {
   alert('تم الحفظ بنجاح ✅');
 }
 
+// ---------- Reports (client-side aggregation, zero storage) ----------
+async function loadReport() {
+  const j = await api('/api/admin/report');
+  if (!j.ok) return;
+  const orders = j.orders || [];
+  STATUS_AR = j.statusAr || STATUS_AR;
+  const live = orders.filter(o => o.status !== 'cancelled');
+  const fmt = (n) => Number(n).toLocaleString('en');
+  // summary
+  const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+  const weekRev = live.filter(o => o.day >= weekAgo).reduce((a, o) => a + o.total, 0);
+  $('repWeek').textContent = fmt(weekRev) + ' ج';
+  $('repAvg').textContent = fmt(live.length ? Math.round(live.reduce((a, o) => a + o.total, 0) / live.length) : 0) + ' ج';
+  const doneStatuses = ['delivered', 'shipped'];
+  $('repDone').textContent = (orders.length ? Math.round(orders.filter(o => doneStatuses.includes(o.status)).length / orders.length * 100) : 0) + '%';
+  $('repCancel').textContent = (orders.length ? Math.round(orders.filter(o => o.status === 'cancelled').length / orders.length * 100) : 0) + '%';
+  // daily revenue 14 days
+  const days = [];
+  for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() - i * 864e5).toISOString().slice(0, 10));
+  const byDay = {};
+  live.forEach(o => { byDay[o.day] = (byDay[o.day] || 0) + o.total; });
+  const maxD = Math.max(1, ...days.map(d => byDay[d] || 0));
+  $('repDaily').innerHTML = days.map(d => {
+    const v = byDay[d] || 0;
+    return `<div class="bar-col" title="${d}: ${fmt(v)} جنيه"><b>${v ? fmt(v) : ''}</b><div class="bar${v ? '' : ' zero'}" style="height:${Math.max(v ? v / maxD * 100 : 2, 2)}%"></div><small>${d.slice(5)}</small></div>`;
+  }).join('');
+  // by status
+  const bySt = {};
+  orders.forEach(o => { bySt[o.status] = (bySt[o.status] || 0) + 1; });
+  const maxS = Math.max(1, ...Object.values(bySt));
+  const stColor = (k) => k === 'cancelled' ? 'red' : (doneStatuses.includes(k) ? 'green' : k === 'new' ? 'blue' : '');
+  $('repStatus').innerHTML = Object.keys(STATUS_AR).filter(k => bySt[k]).map(k =>
+    `<div class="hbar-row"><span>${STATUS_AR[k]}</span><div class="hbar-track"><div class="hbar-fill ${stColor(k)}" style="width:${bySt[k] / maxS * 100}%"></div></div><b>${bySt[k]}</b></div>`
+  ).join('') || '<p class="hint">مفيش طلبات لسه</p>';
+  // by governorate
+  const byG = {};
+  live.forEach(o => { byG[o.gov] = (byG[o.gov] || 0) + 1; });
+  const govs = Object.entries(byG).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxG = Math.max(1, ...govs.map(g => g[1]));
+  $('repGovs').innerHTML = govs.map(([g, n]) =>
+    `<div class="hbar-row"><span>${esc(g)}</span><div class="hbar-track"><div class="hbar-fill blue" style="width:${n / maxG * 100}%"></div></div><b>${n}</b></div>`
+  ).join('') || '<p class="hint">مفيش طلبات لسه</p>';
+  // top products
+  const byP = {};
+  live.forEach(o => o.items.forEach(l => { byP[l.name] = (byP[l.name] || 0) + l.qty; }));
+  const tops = Object.entries(byP).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxP = Math.max(1, ...tops.map(t => t[1]));
+  $('repTop').innerHTML = tops.map(([n, q], i) =>
+    `<div class="hbar-row"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] + ' ' : ''}${esc(n)}</span><div class="hbar-track"><div class="hbar-fill" style="width:${q / maxP * 100}%"></div></div><b>${q} قطعة</b></div>`
+  ).join('') || '<p class="hint">مفيش مبيعات لسه</p>';
+}
+
 async function loadProducts() {
   const j = await api('/api/admin/products');
   if (!j.ok) return;
@@ -549,10 +646,11 @@ async function loadProducts() {
   j.products.forEach(p => {
     const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
     const div = document.createElement('div');
-    div.className = 'prod-item';
+    const low = Number(p.stock) <= 5;
+    div.className = 'prod-item' + (low ? ' low-stock' : '');
     div.innerHTML = `
       <img src="${img}" loading="lazy" decoding="async">
-      <div class="grow"><b>${esc(p.name)}</b> ${p.featured ? '<span class="badge-feat">⭐ مميز</span>' : ''} ${p.video ? '<span class="badge-feat">🎬 فيديو</span>' : ''} ${p.active ? '' : '<span class="badge-off">مخفي</span>'}
+      <div class="grow"><b>${esc(p.name)}</b> ${low ? `<span class=\"badge-low\">⚠️ مخزون (${p.stock})</span>` : ``} ${p.featured ? '<span class="badge-feat">⭐ مميز</span>' : ''} ${p.video ? '<span class="badge-feat">🎬 فيديو</span>' : ''} ${p.active ? '' : '<span class="badge-off">مخفي</span>'}
         <div class="muted" style="font-size:13px">${p.price} ج ${p.old_price > p.price ? `(قبل: ${p.old_price})` : ''} | 🎨 ${p.colors.length} ألوان | 📏 ${p.sizes.join('، ')}</div>
       </div>
       <button class="btn-mini btn-ok f-feat" title="منتج مميز (يظهر أول واحد)">⭐</button>
@@ -589,6 +687,7 @@ async function loadProducts() {
     };
     list.appendChild(div);
   });
+  setBadge('badgeStock', document.querySelectorAll('#productsList .low-stock').length);
   if ($('colorRows').children.length === 0) addColorRow();
   if ($('sizeRows').children.length === 0) addSizeRow();
 }
