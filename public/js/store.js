@@ -82,7 +82,12 @@ async function paintStore(s, fromCache) {
     showMaintAdminBar();
   }
   buildGovSelect();
-  if (PRODUCTS.length) { const feat = PRODUCTS.find(p => p.featured); selectProduct(feat ? feat.id : PRODUCTS[0].id); }
+  if (PRODUCTS.length) {
+    const qp = Number(new URLSearchParams(location.search).get('p')) || 0;
+    const shared = qp && PRODUCTS.find(p => p.id === qp);
+    const feat = PRODUCTS.find(p => p.featured);
+    selectProduct(shared ? shared.id : (feat ? feat.id : PRODUCTS[0].id));
+  }
   if (PRODUCTS.length > 1) renderMoreProducts();
   renderSbProducts();
   $('featuresTitle').textContent = SETTINGS.features_title || DEF_TITLES.featuresTitle;
@@ -200,6 +205,11 @@ function selectProduct(id) {
   loadReviews(CURRENT.id);
   updateWaFloat();
   if (SETTINGS && SETTINGS.store_name_ar) document.title = `${SETTINGS.store_name_ar} | ${CURRENT.name} — اطلب دلوقتي`;
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set('p', CURRENT.id);
+    history.replaceState(null, '', u.pathname + u.search);
+  } catch { /* ignore */ }
 }
 
 function renderProduct() {
@@ -279,18 +289,41 @@ function renderProduct() {
   $('sizeName').textContent = p.sizes[selSize] || '';
 }
 
-let moreShown = 12;
+let moreMode = 'row'; // 'row' = single moving row, 'all' = show-all grid
 function renderMoreProducts() {
-  const wrap = $('moreProducts'), grid = $('productsGrid');
+  const wrap = $('moreProducts');
   wrap.style.display = (SETTINGS && SETTINGS.show_more === '0') ? 'none' : '';
-  moreShown = 12;
   paintMoreProducts();
+}
+function moreList() {
+  let rest = PRODUCTS.filter(p => p.id !== CURRENT.id);
+  if (moreMode === 'all') {
+    const q = (($('allSearch') && $('allSearch').value) || '').trim();
+    const sort = ($('allSort') && $('allSort').value) || 'feat';
+    if (q) rest = rest.filter(p => p.name.includes(q));
+    const disc = (p) => { const o = Number(p.old_price) || 0; return o > p.price ? o - p.price : 0; };
+    if (sort === 'cheap') rest = [...rest].sort((a, b) => a.price - b.price);
+    else if (sort === 'disc') rest = [...rest].sort((a, b) => disc(b) - disc(a));
+    else rest = [...rest].sort((a, b) => (b.featured || 0) - (a.featured || 0));
+  } else {
+    rest = [...rest].sort((a, b) => (b.featured || 0) - (a.featured || 0) || a.id - b.id);
+  }
+  return rest;
 }
 function paintMoreProducts() {
   const grid = $('productsGrid');
   grid.innerHTML = '';
-  const rest = PRODUCTS.filter(p => p.id !== CURRENT.id).sort((a, b) => (b.featured || 0) - (a.featured || 0));
-  rest.slice(0, moreShown).forEach(p => {
+  grid.className = moreMode === 'all' ? 'products-grid' : 'products-carousel';
+  $('allToolbar').style.display = moreMode === 'all' ? '' : 'none';
+  $('prowNav').style.display = moreMode === 'all' ? 'none' : '';
+  const sb = $('showAllBtn');
+  sb.textContent = moreMode === 'all' ? '⬅️ رجوع للصف' : 'عرض الكل 🛍️';
+  sb.classList.toggle('on', moreMode === 'all');
+  const rest = moreList();
+  if (!rest.length) {
+    grid.innerHTML = '<p class="muted" style="text-align:center;grid-column:1/-1">لا توجد منتجات مطابقة 🔍</p>';
+  }
+  rest.forEach(p => {
     const img = (p.colors[0] && p.colors[0].image) || '/images/logo.jpg';
     const old = Number(p.old_price) || 0;
     const card = document.createElement('div');
@@ -311,14 +344,32 @@ function paintMoreProducts() {
     };
     grid.appendChild(card);
   });
-  if (rest.length > moreShown) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'btn btn-ghost more-btn';
-    b.textContent = `عرض المزيد ⬇️ (${rest.length - moreShown} منتج)`;
-    b.onclick = () => { moreShown += 12; paintMoreProducts(); };
-    grid.appendChild(b);
-  }
+  $('prowCount').textContent = rest.length ? `${rest.length} منتج` : '';
+}
+// auto-slide the single row (pauses 8s after user interaction)
+let prowTimer = null, prowLastTouch = 0;
+function startProwSlider() {
+  if (prowTimer) return;
+  const grid = $('productsGrid');
+  ['pointerdown', 'wheel', 'touchstart'].forEach(ev =>
+    grid.addEventListener(ev, () => { prowLastTouch = Date.now(); }, { passive: true }));
+  prowTimer = setInterval(() => {
+    if (document.hidden || moreMode !== 'row' || Date.now() - prowLastTouch < 8000) return;
+    const g = $('productsGrid');
+    const cards = g.querySelectorAll('.pcard');
+    if (cards.length < 2 || g.scrollWidth <= g.clientWidth + 10) return;
+    const w = cards[0].offsetWidth + 12;
+    const cur = Math.round(Math.abs(g.scrollLeft) / w);
+    const next = (cur + 1 > cards.length - 1) ? 0 : cur + 1;
+    g.scrollTo({ left: -(next * w), behavior: 'smooth' });
+  }, 3500);
+}
+function prowStep(dir) {
+  const g = $('productsGrid');
+  const card = g.querySelector('.pcard');
+  if (!card) return;
+  prowLastTouch = Date.now();
+  g.scrollBy({ left: dir * (card.offsetWidth + 12), behavior: 'smooth' });
 }
 
 // ---------- Product video ----------
@@ -753,12 +804,35 @@ function bindUI() {
   $('sideClose').onclick = closeSide;
   $('sideOverlay').onclick = closeSide;
   document.querySelectorAll('.side-link').forEach(a => a.addEventListener('click', closeSide));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); $('lightbox').classList.remove('show'); } });
   $('sbTrackBtn').onclick = doSbTrack;
   startReviewsSlider();
+  startProwSlider();
   if ($('sizeGuideBtn')) $('sizeGuideBtn').onclick = openSizeGuide;
   if ($('sizeClose')) $('sizeClose').onclick = closeSizeGuide;
   if ($('sizeModal')) $('sizeModal').addEventListener('click', (e) => { if (e.target.id === 'sizeModal') closeSizeGuide(); });
+  // v4.2: carousel + show-all + share + lightbox + back-to-top
+  $('showAllBtn').onclick = () => { moreMode = moreMode === 'all' ? 'row' : 'all'; paintMoreProducts(); };
+  $('allSearch').oninput = paintMoreProducts;
+  $('allSort').onchange = paintMoreProducts;
+  $('prowNext').onclick = () => prowStep(-1);
+  $('prowPrev').onclick = () => prowStep(1);
+  $('shareWa').onclick = () => {
+    if (!CURRENT) return;
+    const link = location.origin + location.pathname + '?p=' + CURRENT.id;
+    const msg = `شوف ${CURRENT.name} بسعر ${CURRENT.price} جنيه من ${SETTINGS.store_name_ar || 'كايرو شيك'} 🔥\n${link}`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  };
+  $('shareCopy').onclick = async () => {
+    if (!CURRENT) return;
+    const link = location.origin + location.pathname + '?p=' + CURRENT.id;
+    try { await navigator.clipboard.writeText(link); toast('اتنسخ رابط المنتج 📋'); }
+    catch { toast('انسخ الرابط من شريط المتصفح 📋'); }
+  };
+  $('mainImage').onclick = () => { $('lightboxImg').src = $('mainImage').src; $('lightbox').classList.add('show'); };
+  $('lightbox').onclick = () => $('lightbox').classList.remove('show');
+  window.addEventListener('scroll', () => { $('topFloat').classList.toggle('show', window.scrollY > 600); }, { passive: true });
+  $('topFloat').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   $('sbPhone').addEventListener('input', () => {
     $('sbPhone').value = normDigits($('sbPhone').value).replace(/\D/g, '').slice(0, 11);
   });

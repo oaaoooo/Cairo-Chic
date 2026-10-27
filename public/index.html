@@ -93,6 +93,10 @@
         <a href="#order" class="btn btn-primary btn-big" id="expressBtn" data-cta>اطلب دلوقتي — الدفع عند الاستلام 🛒</a>
         <button type="button" class="btn btn-cart" id="addCartBtn">➕ أضف للسلة</button>
       </div>
+      <div class="share-row">
+        <button type="button" class="btn btn-share-wa" id="shareWa">مشاركة واتساب 💬</button>
+        <button type="button" class="btn btn-share-cp" id="shareCopy">📋 نسخ رابط المنتج</button>
+      </div>
       <div class="stock-line" id="stockLine">⚡ باقي <b>7 قطع بس</b> بالسعر ده — الكمية محدودة</div>
     </div>
   </section>
@@ -134,8 +138,24 @@
 
   <!-- ===== MORE PRODUCTS ===== -->
   <section class="section" id="moreProducts" style="display:none">
-    <h2 id="moreTitle">منتجات تانية هتعجبك 🛍️</h2>
-    <div class="products-grid" id="productsGrid"></div>
+    <div class="sec-head">
+      <h2 id="moreTitle">منتجات تانية هتعجبك 🛍️</h2>
+      <button type="button" class="showall-btn" id="showAllBtn">عرض الكل 🛍️</button>
+    </div>
+    <div class="all-toolbar" id="allToolbar" style="display:none">
+      <input type="search" id="allSearch" placeholder="دوّر باسم المنتج 🔍">
+      <select id="allSort">
+        <option value="feat">الأكثر تميزًا ⭐</option>
+        <option value="cheap">الأرخص سعرًا 💰</option>
+        <option value="disc">أكبر خصم 🏷️</option>
+      </select>
+    </div>
+    <div class="products-carousel" id="productsGrid"></div>
+    <div class="prow-nav" id="prowNav">
+      <button type="button" class="prow-arrow" id="prowPrev">›</button>
+      <span class="prow-count" id="prowCount"></span>
+      <button type="button" class="prow-arrow" id="prowNext">‹</button>
+    </div>
   </section>
 
 
@@ -258,6 +278,8 @@
 </footer>
 
 <a class="wa-float" id="waFloat" href="#" target="_blank" style="display:none" title="كلمنا واتساب">💬</a>
+<button type="button" class="top-float" id="topFloat" title="اطلع فوق ⬆️">⬆️</button>
+<div class="lightbox" id="lightbox"><img id="lightboxImg" src="" alt="تكبير الصورة"></div>
 
 <div class="sticky-buy">
   <div><b><span id="stickyPrice">599</span> جنيه</b><span class="sticky-old"><span id="stickyOld">850</span> جنيه</span></div>
