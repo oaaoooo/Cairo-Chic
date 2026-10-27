@@ -529,7 +529,7 @@ function openChat() {
   $('chatDot').style.display = 'none';
   try { localStorage.setItem('cc_chat_seen', '1'); } catch { /* ignore */ }
   if (!CHAT.msgs.length) {
-    chatBubble(`أهلاً بيك في كايرو شيك 🦅\nأنا المساعد الذكي — اسألني عن الشحن أو الدفع أو المقاسات، أو اكتب رسالتك وهحوّلك لموظف خدمة العملاء 👌`, 'bot');
+    chatBubble(`أهلاً بيك في كايرو شيك 🦅\nأنا المساعد الذكي — اسألني عن الشحن أو الدفع أو المقاسات، أو اكتب رسالتك وهحوّلك لموظف خدمة العملاء 👌\nمستعجل؟ دوس 📲 فوق للواتساب المباشر`, 'bot');
   }
   paintChatQuick();
   chatScroll();
@@ -603,6 +603,7 @@ function initChat() {
   if (CHAT.name) { $('chatName').value = CHAT.name; $('chatPhone').value = CHAT.phone; }
   $('chatFab').onclick = () => ($('chatPanel').style.display === 'none' ? openChat() : closeChat());
   $('chatX').onclick = closeChat;
+  $('chatWaBtn').onclick = () => openWhatsApp(SETTINGS.whatsapp || '', waInquiryMsg());
   $('chatSend').onclick = () => chatSend();
   $('chatText').addEventListener('keydown', (e) => { if (e.key === 'Enter') chatSend(); });
   $('chatLeadGo').onclick = chatLeadSubmit;
@@ -987,15 +988,16 @@ function startCountdown() {
 }
 
 // ---------- UI ----------
+function waInquiryMsg() {
+  const waTpl = (SETTINGS && SETTINGS.wa_msg) || 'أهلاً {store}، عندي استفسار عن {product}';
+  return waTpl.split('{store}').join((SETTINGS && SETTINGS.store_name_ar) || 'كايرو شيك').split('{product}').join(CURRENT ? CURRENT.name : '');
+}
 function updateWaFloat() {
-  if (!SETTINGS || !SETTINGS.whatsapp || !CURRENT || SETTINGS.show_wa === '0') { $('waFloat').style.display = 'none'; $('sbWaSec').style.display = 'none'; return; }
-  const wa = $('waFloat');
-  wa.style.display = 'flex';
-  const waTpl = SETTINGS.wa_msg || 'أهلاً {store}، عندي استفسار عن {product}';
-  const waMsg = waTpl.split('{store}').join(SETTINGS.store_name_ar || 'كايرو شيك').split('{product}').join(CURRENT.name);
-  wa.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(waMsg)}`;
-  $('sbWaSec').style.display = '';
-  $('sbWa').href = wa.href;
+  const off = !SETTINGS || !SETTINGS.whatsapp || !CURRENT || SETTINGS.show_wa === '0';
+  $('sbWaSec').style.display = off ? 'none' : '';
+  $('chatWaBtn').style.display = off ? 'none' : '';
+  if (off) return;
+  $('sbWa').href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(waInquiryMsg())}`;
 }
 
 // v4.4: open WhatsApp reliably incl. TikTok/FB in-app browsers (zero storage)

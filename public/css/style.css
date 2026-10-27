@@ -492,3 +492,5 @@ html { scroll-behavior: smooth; }
   .chat-panel { bottom: 152px; }
   .chat-fab { bottom: 86px; }
 }
+/* v4.5: merged contact - direct WhatsApp inside chat header */
+#chatWaBtn { background: var(--green) !important; font-size: 17px !important; }
