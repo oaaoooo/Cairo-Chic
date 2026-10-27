@@ -25,6 +25,7 @@
 <body>
 
 <div class="announce" id="announce">🚚 شحن سريع لكل محافظات مصر (ماعدا سيناء) — الدفع عند الاستلام 💵</div>
+<div class="app-banner" id="appBanner" style="display:none"><span id="appBannerTxt"></span><button type="button" id="appBannerX" title="إخفاء">✕</button></div>
 
 <header class="header">
   <div class="container header-in">
@@ -297,6 +298,22 @@
 <a class="wa-float" id="waFloat" href="#" target="_blank" style="display:none" title="كلمنا واتساب">💬</a>
 <button type="button" class="top-float" id="topFloat" title="اطلع فوق ⬆️">⬆️</button>
 <div class="lightbox" id="lightbox"><img id="lightboxImg" src="" alt="تكبير الصورة"></div>
+<button type="button" class="chat-fab" id="chatFab" title="كلمنا 💬">💬<span class="chat-dot" id="chatDot" style="display:none"></span></button>
+<div class="chat-panel" id="chatPanel" style="display:none">
+  <div class="chat-head"><span class="chat-avatar">🦅</span><span class="chat-title">كايرو شيك<small>خدمة العملاء • متصل الآن 🟢</small></span><button type="button" id="chatX" title="إغلاق">✕</button></div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-quick" id="chatQuick"></div>
+  <div class="chat-lead" id="chatLead" style="display:none">
+    <b>📝 عشان موظف يتواصل معاك:</b>
+    <input id="chatName" placeholder="اكتب اسمك" maxlength="40">
+    <input id="chatPhone" placeholder="رقم الموبايل (11 رقم)" inputmode="numeric" maxlength="11" dir="ltr">
+    <button type="button" class="btn btn-primary" id="chatLeadGo">تأكيد ✅</button>
+  </div>
+  <div class="chat-input">
+    <input id="chatText" placeholder="اكتب رسالتك..." maxlength="500">
+    <button type="button" id="chatSend" title="إرسال">➤</button>
+  </div>
+</div>
 <div class="qv-modal" id="qvModal">
   <div class="qv-box">
     <button type="button" class="size-close" id="qvClose">✕</button>

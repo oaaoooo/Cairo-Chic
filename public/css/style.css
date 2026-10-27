@@ -449,3 +449,46 @@ html { scroll-behavior: smooth; }
 .qv-price b { font-size: 22px; color: var(--orange-dark); }
 .qv-price small { color: var(--muted); text-decoration: line-through; }
 .pcard-imgwrap { cursor: pointer; }
+
+/* ===== v4.4: in-app banner + smart chat (zero storage) ===== */
+.app-banner { background: #141419; color: #fff; font-size: 13px; font-weight: 700; text-align: center;
+  padding: 9px 40px 9px 12px; position: relative; }
+.app-banner button { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: none;
+  border: none; color: #fff; font-size: 16px; cursor: pointer; font-family: inherit; }
+.chat-fab { position: fixed; bottom: 90px; right: 16px; width: 56px; height: 56px; border-radius: 50%;
+  border: none; background: linear-gradient(180deg, var(--orange), var(--orange-dark)); font-size: 28px;
+  cursor: pointer; box-shadow: 0 4px 14px rgba(255,122,0,.45); z-index: 60; font-family: inherit; }
+.chat-dot { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: #ef4444; border: 2px solid #fff; }
+.chat-panel { position: fixed; bottom: 156px; right: 16px; width: 340px; max-width: calc(100vw - 32px);
+  height: 460px; max-height: calc(100vh - 220px); background: #fff; border-radius: 16px; z-index: 300;
+  box-shadow: 0 10px 40px rgba(0,0,0,.25); display: flex; flex-direction: column; overflow: hidden; }
+.chat-head { background: linear-gradient(180deg, var(--orange), var(--orange-dark)); color: #fff;
+  padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+.chat-avatar { font-size: 26px; }
+.chat-title { flex: 1; font-weight: 900; font-size: 15px; }
+.chat-title small { display: block; font-weight: 600; font-size: 11px; opacity: .9; }
+.chat-head button { background: rgba(255,255,255,.2); border: none; color: #fff; border-radius: 8px;
+  width: 30px; height: 30px; cursor: pointer; font-size: 14px; font-family: inherit; }
+.chat-msgs { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fafafa; }
+.chat-bubble { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.6; }
+.chat-bubble.bot { background: #fff; border: 1px solid #eee; align-self: flex-start; border-top-right-radius: 4px; }
+.chat-bubble.me { background: var(--orange); color: #fff; align-self: flex-end; border-top-left-radius: 4px; }
+.chat-wa { align-self: flex-start; background: var(--green); color: #fff; border: none; border-radius: 12px;
+  padding: 9px 14px; font-family: inherit; font-weight: 800; font-size: 13px; cursor: pointer; }
+.chat-quick { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; scrollbar-width: none; }
+.chat-quick::-webkit-scrollbar { display: none; }
+.chat-quick button { border: 2px solid var(--orange); background: #fff; color: var(--orange-dark);
+  border-radius: 20px; padding: 6px 12px; font-family: inherit; font-size: 12px; font-weight: 800;
+  cursor: pointer; white-space: nowrap; }
+.chat-lead { padding: 10px; border-top: 2px dashed var(--orange); background: #fff7ed; display: flex; flex-direction: column; gap: 8px; }
+.chat-lead input { padding: 10px 12px; border: 2px solid #eee; border-radius: 10px; font-family: inherit; font-size: 14px; }
+.chat-lead .btn { padding: 10px; font-size: 14px; }
+.chat-input { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid #eee; }
+.chat-input input { flex: 1; padding: 10px 12px; border: 2px solid #eee; border-radius: 20px; font-family: inherit; font-size: 14px; }
+.chat-input button { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
+  background: linear-gradient(180deg, var(--orange), var(--orange-dark)); color: #fff; font-size: 18px; font-family: inherit; }
+@media (max-width: 640px) {
+  .chat-panel { bottom: 152px; }
+  .chat-fab { bottom: 86px; }
+}

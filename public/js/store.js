@@ -63,6 +63,8 @@ async function init() {
   }
   startCountdown();
   bindUI();
+  initChat();
+  initAppBanner();
   paintStars();
   renderCart();
   updateSummary();
@@ -476,6 +478,152 @@ function paintRecent() {
 }
 
 
+
+// ---------- v4.4: smart chat (localStorage only, handoff to WhatsApp) ----------
+let CHAT = { msgs: [], name: '', phone: '' };
+function loadChat() {
+  try {
+    const c = JSON.parse(localStorage.getItem('cc_chat') || 'null');
+    if (c && Array.isArray(c.msgs)) CHAT = { msgs: c.msgs.slice(-40), name: c.name || '', phone: c.phone || '' };
+  } catch { /* ignore */ }
+}
+function saveChat() {
+  try { localStorage.setItem('cc_chat', JSON.stringify({ msgs: CHAT.msgs.slice(-40), name: CHAT.name, phone: CHAT.phone })); } catch { /* ignore */ }
+}
+function chatScroll() { const m = $('chatMsgs'); m.scrollTop = m.scrollHeight; }
+function chatBubble(text, who) {
+  CHAT.msgs.push({ t: text, w: who });
+  saveChat();
+  const d = document.createElement('div');
+  d.className = 'chat-bubble ' + who;
+  d.textContent = text;
+  $('chatMsgs').appendChild(d);
+  chatScroll();
+}
+function chatWaBtn(label) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'chat-wa';
+  b.textContent = label || 'كمّل المحادثة على واتساب 💬';
+  b.onclick = () => {
+    const first = (CHAT.msgs.find(m => m.w === 'me') || {}).t || '';
+    const prod = CURRENT ? `${CURRENT.name} (${CURRENT.price} جنيه)` : '';
+    openWhatsApp(SETTINGS.whatsapp || '', `أهلاً كايرو شيك 🦅\nالاسم: ${CHAT.name}\nالتليفون: ${CHAT.phone}\nالرسالة: ${first}\nالمنتج: ${prod}`);
+  };
+  $('chatMsgs').appendChild(b);
+  chatScroll();
+}
+const CHAT_QUICK = ['🚚 الشحن بياخد قد إيه؟', '💵 الدفع إزاي؟', '📏 إزاي أختار مقاسي؟', '🎁 في خصم؟'];
+function paintChatQuick() {
+  const q = $('chatQuick');
+  q.innerHTML = '';
+  if ($('chatLead').style.display !== 'none') return;
+  CHAT_QUICK.forEach(t => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = t;
+    b.onclick = () => chatSend(t);
+    q.appendChild(b);
+  });
+}
+function openChat() {
+  $('chatPanel').style.display = 'flex';
+  $('chatDot').style.display = 'none';
+  try { localStorage.setItem('cc_chat_seen', '1'); } catch { /* ignore */ }
+  if (!CHAT.msgs.length) {
+    chatBubble(`أهلاً بيك في كايرو شيك 🦅\nأنا المساعد الذكي — اسألني عن الشحن أو الدفع أو المقاسات، أو اكتب رسالتك وهحوّلك لموظف خدمة العملاء 👌`, 'bot');
+  }
+  paintChatQuick();
+  chatScroll();
+}
+function closeChat() { $('chatPanel').style.display = 'none'; }
+function shipRange() {
+  const govs = (SETTINGS && SETTINGS.governorates) || [];
+  if (!govs.length) return '';
+  const fees = govs.map(g => Number(g.shipping) || 0);
+  return ` (من ${Math.min(...fees)} لـ ${Math.max(...fees)} جنيه حسب المحافظة)`;
+}
+function chatBotAnswer(text) {
+  const t = text.replace(/[؟?]/g, '');
+  if (/شحن|توصيل|يوصل|امتى|فين|محافظ|استلم/.test(t)) return `الشحن سريع لكل محافظات مصر 🇪🇬 (ماعدا سيناء) من 2 لـ 5 أيام عمل${shipRange()} 🚚\nلو عايز تطلب، دوس «اطلب دلوقتي» واكتب بياناتك والدفع عند الاستلام 💵`;
+  if (/دفع|فلوس|كاش|فيزا|مقدم|عربون/.test(t)) return 'الدفع كاش عند الاستلام 💵 — مفيش أي دفع مقدم، وبتعاين المنتج قبل ما تدفع 📦';
+  if (/مقاس|سايز|يلبس|وزن|كبير|صغير/.test(t)) { setTimeout(openSizeGuide, 900); return 'عندنا دليل مقاسات لكل منتج 📏 — هفتحهولك دلوقتي، اكتب وزنك وهيقترحلك مقاسك ✨'; }
+  if (/سعر|بكام|بكم|خصم|عرض|غالي/.test(t)) {
+    if (!CURRENT) return 'عندنا عروض وخصومات مستمرة 🎁 — ابعتلي اسم المنتج اللي عاجبك وأقولك سعره!';
+    const old = Number(CURRENT.old_price) || 0;
+    return `${CURRENT.name} بسعر ${CURRENT.price} جنيه${old > CURRENT.price ? ` بدل ${old} (وفّر ${old - CURRENT.price} جنيه 🏷️)` : ''} 🔥`;
+  }
+  if (/طلب|اوردر|اشتر|عايز |اطلب/.test(t)) return 'تطلب في دقيقة واحدة 📝: اختار اللون والمقاس ودوس «اطلب دلوقتي» واكتب اسمك ورقمك وعنوانك — وهنكلمك نأكد الطلب 📞';
+  if (/موظف|بشري|حد يكلمني|خدمة عمل|رقم التليفون|اتصل/.test(t)) return null; // -> handoff
+  if (/سلام|اهلا|أهلا|ازيك|صباح|مساء|هاي/.test(t) && t.length < 20) return 'أهلاً أهلاً 🌟 اسألني عن أي حاجة (شحن، دفع، مقاسات، أسعار) أو اكتب رسالتك وهوصّلك بموظف 👌';
+  return null; // -> handoff
+}
+function chatHandoff() {
+  if (CHAT.name && CHAT.phone) {
+    chatBubble('تمام، بياناتك متسجلة عندنا ✅ دوس الزرار ده وكمّل مع موظف خدمة العملاء على واتساب 👇', 'bot');
+    chatWaBtn();
+    return;
+  }
+  chatBubble('تمام ✅ عشان أحد ممثلي خدمة عملاء كايرو شيك 🦅 يتواصل معاك، اكتب اسمك ورقم موبايلك تحت 👇', 'bot');
+  $('chatLead').style.display = 'flex';
+  paintChatQuick();
+}
+function chatLeadSubmit() {
+  const name = ($('chatName').value || '').trim();
+  const phone = normDigits($('chatPhone').value || '').replace(/[^0-9]/g, '');
+  if (name.length < 2) { toast('اكتب اسمك الأول 📝'); return; }
+  if (!/^01[0125][0-9]{8}$/.test(phone)) { toast('رقم الموبايل غلط — لازم يبدأ بـ 01 ومن 11 رقم 📱'); return; }
+  CHAT.name = name; CHAT.phone = phone; saveChat();
+  $('chatLead').style.display = 'none';
+  paintChatQuick();
+  chatBubble(`تمام يا ${name}! 🌟\nرسالتك وصلتنا، وجاري تحويلك دلوقتي لأحد ممثلي خدمة عملاء كايرو شيك 🦅\nهيتواصل معاك في أقرب وقت على ${phone} 📱`, 'bot');
+  chatWaBtn();
+}
+function chatSend(text) {
+  text = (text || $('chatText').value || '').trim();
+  if (!text) return;
+  $('chatText').value = '';
+  chatBubble(text, 'me');
+  setTimeout(() => {
+    const ans = chatBotAnswer(text);
+    if (ans) chatBubble(ans, 'bot');
+    else chatHandoff();
+  }, 600);
+}
+function paintChatHistory() {
+  $('chatMsgs').innerHTML = '';
+  CHAT.msgs.forEach(m => {
+    const d = document.createElement('div');
+    d.className = 'chat-bubble ' + m.w;
+    d.textContent = m.t;
+    $('chatMsgs').appendChild(d);
+  });
+}
+function initChat() {
+  loadChat();
+  paintChatHistory();
+  if (CHAT.name) { $('chatName').value = CHAT.name; $('chatPhone').value = CHAT.phone; }
+  $('chatFab').onclick = () => ($('chatPanel').style.display === 'none' ? openChat() : closeChat());
+  $('chatX').onclick = closeChat;
+  $('chatSend').onclick = () => chatSend();
+  $('chatText').addEventListener('keydown', (e) => { if (e.key === 'Enter') chatSend(); });
+  $('chatLeadGo').onclick = chatLeadSubmit;
+  // gentle nudge after 30s for first-time visitors
+  setTimeout(() => {
+    try {
+      if (!localStorage.getItem('cc_chat_seen') && $('chatPanel').style.display === 'none') $('chatDot').style.display = '';
+    } catch { /* ignore */ }
+  }, 30000);
+}
+function initAppBanner() {
+  if (!isInAppBrowser()) return;
+  try { if (localStorage.getItem('cc_nobanner')) return; } catch { /* ignore */ }
+  $('appBannerTxt').textContent = `📱 فاتح من ${inAppName()}؟ لأحسن تجربة دوس ⋯ فوق واختار «فتح في المتصفح» عشان الواتساب والطلب يشتغلوا تمام 🌐`;
+  $('appBanner').style.display = '';
+  $('appBannerX').onclick = () => {
+    $('appBanner').style.display = 'none';
+    try { localStorage.setItem('cc_nobanner', '1'); } catch { /* ignore */ }
+  };
+}
+
 // ---------- Product video ----------
 function ytId(url) {
   const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
@@ -850,6 +998,32 @@ function updateWaFloat() {
   $('sbWa').href = wa.href;
 }
 
+// v4.4: open WhatsApp reliably incl. TikTok/FB in-app browsers (zero storage)
+function isInAppBrowser() {
+  const ua = (navigator.userAgent || '').toLowerCase();
+  return /tiktok|musical_ly|musically|bytedance|fban\/|fbav\/|fb_iab|instagram|snapchat|micromessenger|line\//.test(ua);
+}
+function inAppName() {
+  const ua = (navigator.userAgent || '').toLowerCase();
+  if (/tiktok|musical_ly|musically|bytedance/.test(ua)) return 'تيك توك';
+  if (/instagram/.test(ua)) return 'انستجرام';
+  if (/fban\/|fbav\/|fb_iab/.test(ua)) return 'فيسبوك';
+  if (/snapchat/.test(ua)) return 'سناب شات';
+  return 'التطبيق';
+}
+function openWhatsApp(phone, text) {
+  phone = String(phone || '').replace(/[^0-9]/g, '');
+  const enc = encodeURIComponent(text || '');
+  // 1) try the app directly (deep link works in most webviews incl. TikTok)
+  try { window.location.href = phone ? `whatsapp://send?phone=${phone}&text=${enc}` : `whatsapp://send?text=${enc}`; } catch { /* ignore */ }
+  // 2) fallback to web page only if the app didn't open (browser still visible)
+  setTimeout(() => {
+    if (document.hidden) return;
+    window.open(`https://api.whatsapp.com/send?${phone ? 'phone=' + phone + '&' : ''}text=${enc}`, '_blank');
+    if (isInAppBrowser()) setTimeout(() => toast(`لو الواتساب مفتحش: دوس ⋯ فوق واختار «فتح في المتصفح» 🌐`), 700);
+  }, 1600);
+}
+
 let revTimer = null, revLastTouch = 0;
 function startReviewsSlider() {
   if (revTimer) return;
@@ -911,7 +1085,17 @@ function bindUI() {
   $('sideClose').onclick = closeSide;
   $('sideOverlay').onclick = closeSide;
   document.querySelectorAll('.side-link').forEach(a => a.addEventListener('click', closeSide));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); closeQV(); $('lightbox').classList.remove('show'); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); closeQV(); closeChat(); $('lightbox').classList.remove('show'); } });
+  // route every wa.me link through the deep-link opener (TikTok webview fix)
+  document.addEventListener('click', (e) => {
+    const a = e.target && e.target.closest ? e.target.closest('a[href*="wa.me/"]') : null;
+    if (!a) return;
+    e.preventDefault();
+    try {
+      const u = new URL(a.href);
+      openWhatsApp(u.pathname.replace(/[^0-9]/g, ''), u.searchParams.get('text') || '');
+    } catch { window.open(a.href, '_blank'); }
+  });
   $('sbTrackBtn').onclick = doSbTrack;
   startReviewsSlider();
   startProwSlider();
@@ -928,7 +1112,7 @@ function bindUI() {
     if (!CURRENT) return;
     const link = location.origin + location.pathname + '?p=' + CURRENT.id;
     const msg = `شوف ${CURRENT.name} بسعر ${CURRENT.price} جنيه من ${SETTINGS.store_name_ar || 'كايرو شيك'} 🔥\n${link}`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    openWhatsApp('', msg);
   };
   $('shareCopy').onclick = async () => {
     if (!CURRENT) return;
