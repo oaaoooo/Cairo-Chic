@@ -285,6 +285,9 @@ export async function createApp({ q, sessionSecret }) {
         const pp = parseProduct(pr.rows[0]);
         if (!pp.colors.map(x => x.name).includes(it.color)) return c.json({ ok: false, error: `(${pp.name}): اختار اللون` });
         if (!pp.sizes.includes(it.size)) return c.json({ ok: false, error: `(${pp.name}): اختار المقاس` });
+        const stk = Number(pp.stock);
+        if (Number.isFinite(stk) && stk < it.qty)
+          return c.json({ ok: false, error: stk <= 0 ? `(${pp.name}): خلص من المخزون 😔` : `(${pp.name}): المتاح ${stk} قطع بس — قلل العدد` });
         lines.push({ pid: pp.id, name: pp.name, color: it.color, size: it.size, qty: it.qty, unit: Number(pp.price) });
       }
       const subtotal = lines.reduce((a, l) => a + l.unit * l.qty, 0);
@@ -317,6 +320,9 @@ export async function createApp({ q, sessionSecret }) {
       const id = ins.rows[0].id;
       const order_no = 'CC-' + (100000 + Number(id));
       await q`UPDATE orders SET order_no = ${order_no} WHERE id = ${id}`;
+      for (const l of lines) {
+        await q`UPDATE products SET stock = stock - ${l.qty} WHERE id = ${l.pid}`;
+      }
 
       return c.json({ ok: true, order_no, total, shipping, discount, items_count: lines.length });
     } catch (e) {

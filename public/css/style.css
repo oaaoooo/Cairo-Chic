@@ -341,3 +341,17 @@ html { scroll-behavior: smooth; }
   .review .stars { font-size: 13px; }
   .review b { font-size: 11px; }
 }
+
+/* ===== v4.0: size guide + stock + WA order ===== */
+.size-guide-link { background: none; border: none; color: #2563eb; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 2px 6px; font-family: inherit; }
+.size-modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+.size-modal.show { display: flex; }
+.size-box { background: #fff; border-radius: 14px; padding: 22px 20px; max-width: 340px; width: 100%; position: relative; text-align: center; }
+.size-box h3 { margin: 0 0 12px; }
+.size-close { position: absolute; top: 8px; left: 8px; background: #fee; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
+.size-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.size-table th, .size-table td { border: 1px solid #e5e7eb; padding: 8px; }
+.size-table th { background: #f8fafc; }
+@media (max-width: 640px) {
+  #stockLine b { font-size: 17px; }
+}

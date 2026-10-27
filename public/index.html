@@ -76,7 +76,7 @@
       <div class="opt-label">اختار اللون: <b id="colorName">الأسود</b></div>
       <div class="colors" id="colorBtns"></div>
 
-      <div class="opt-label">اختار المقاس: <b id="sizeName">L</b></div>
+      <div class="opt-label">اختار المقاس: <b id="sizeName">L</b> <button type="button" class="size-guide-link" id="sizeGuideBtn">📏 دليل المقاسات</button></div>
       <div class="sizes" id="sizeBtns"></div>
       <div class="size-hint" id="sizeHint">📏 المقاسات مظبوطة — لو بين مقاسين خد الأكبر</div>
 
@@ -302,11 +302,26 @@
     <div class="cart-sub">المجموع الفرعي: <b><span id="cartSub">0</span> جنيه</b></div>
     <small class="muted">+ الشحن (بيتحسب حسب محافظتك في فورم الطلب)</small>
     <a href="#order" class="btn btn-primary btn-big" id="cartCheckout">إتمام الطلب ✅</a>
+    <a href="#" target="_blank" rel="noopener" class="btn btn-whatsapp btn-big" id="cartWa" style="display:none">💬 اطلب واتساب</a>
     <button class="btn btn-ghost" id="cartContinue" type="button">متابعة التسوق</button>
   </div>
 </aside>
 <div class="toast" id="toast"></div>
 
+<div class="size-modal" id="sizeModal">
+  <div class="size-box">
+    <button type="button" class="size-close" id="sizeClose">✕</button>
+    <h3>📏 دليل المقاسات</h3>
+    <table class="size-table">
+      <tr><th>المقاس</th><th>الوزن المناسب</th></tr>
+      <tr><td><b>M</b></td><td>60 – 75 كجم</td></tr>
+      <tr><td><b>L</b></td><td>75 – 90 كجم</td></tr>
+      <tr><td><b>XL</b></td><td>90 – 105 كجم</td></tr>
+      <tr><td><b>XXL</b></td><td>105 – 120 كجم</td></tr>
+    </table>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">* دليل استرشادي — الخامة فيها ليكرا بتريح في اللبس. لو بين مقاسين خد الأكبر ✅</p>
+  </div>
+</div>
 <script src="/js/store.js"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@
 const $ = (id) => document.getElementById(id);
 let STATUS_AR = {};
 let revFilter = 'pending';
-let ORDERS_CACHE = [], ADMIN_PRODUCTS = [];
+let ORDERS_CACHE = [], ADMIN_PRODUCTS = [], PRINT_ORDER = null;
 
 // Cairo time, 12-hour format: 25/10/2026 + 6:40 م
 function fmtDT(iso) {
@@ -121,6 +121,9 @@ function bindPanel() {
   $('refreshOrders').onclick = () => loadOrders(orderPage);
   $('statusFilter').onchange = () => loadOrders(1);
   $('delSelectedBtn').onclick = delSelected;
+  $('csvBtn').onclick = exportCsv;
+  $('printSlipBtn').onclick = printSlip;
+  startNotify();
   $('pagePrev').onclick = () => loadOrders(orderPage - 1);
   $('pageNext').onclick = () => loadOrders(orderPage + 1);
   $('selAll').onchange = () => { document.querySelectorAll('.o-sel').forEach(x => x.checked = $('selAll').checked); updateSelCount(); };
@@ -262,6 +265,7 @@ function prodImage(pid, color) {
 function openOrder(id) {
   const o = ORDERS_CACHE.find(x => x.id === id);
   if (!o) return;
+  PRINT_ORDER = o;
   $('mOrderNo').textContent = o.order_no;
   const items = (o.items && o.items.length ? o.items : [{ pid: o.product_id, name: o.product_name, color: o.color, size: o.size, qty: o.qty, unit: o.unit_price }]);
   const itemsHtml = items.map(l => `
@@ -284,6 +288,112 @@ function openOrder(id) {
     ${o.coupon_code ? `<div class="d-row"><b>🎟 الكوبون</b><span><b dir="ltr">${esc(o.coupon_code)}</b> (خصم ${o.discount} ج)</span></div>` : ''}
     <div class="d-row" style="font-size:16px;border:none"><b>💰 الإجمالي</b><span><b>${o.total} جنيه</b></span></div>`;
   $('orderModal').classList.add('show');
+}
+
+async function exportCsv() {
+  const btn = $('csvBtn');
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = '⏳ جاري التصدير...';
+  try {
+    const st = $('statusFilter').value;
+    let page = 1, pages = 1;
+    const all = [];
+    do {
+      const j = await api('/api/admin/orders?page=' + page + (st ? '&status=' + st : ''));
+      if (!j.ok) throw new Error(j.error || 'خطأ');
+      pages = j.pages || 1;
+      (j.orders || []).forEach(o => all.push(o));
+      page++;
+    } while (page <= pages);
+    if (!all.length) { alert('مفيش طلبات للتصدير'); return; }
+    const q = (v) => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
+    const head = ['رقم الطلب', 'التاريخ', 'الاسم', 'الموبايل', 'المحافظة', 'المنطقة', 'العنوان', 'المنتجات', 'الإجمالي', 'الشحن', 'الكوبون', 'الحالة'];
+    const rows = all.map(o => {
+      const items = (o.items && o.items.length ? o.items : [{ name: o.product_name, color: o.color, size: o.size, qty: o.qty }]);
+      const txt = items.map(l => `${l.name} (${l.color}/${l.size} ×${l.qty})`).join(' + ');
+      return [o.order_no, String(o.created_at || '').slice(0, 16).replace('T', ' '), o.name, o.phone, o.governorate, o.area, o.address, txt, o.total, o.shipping, o.coupon_code || '', STATUS_AR[o.status] || o.status].map(q).join(',');
+    });
+    const blob = new Blob(['\ufeff' + head.map(q).join(',') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cairo-chic-orders.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) { alert(e.message); }
+  btn.disabled = false;
+  btn.textContent = old;
+}
+
+function printSlip() {
+  const o = PRINT_ORDER;
+  if (!o) return;
+  const store = ($('sNameAr') && $('sNameAr').value) || 'كايرو شيك';
+  const items = (o.items && o.items.length ? o.items : [{ name: o.product_name, color: o.color, size: o.size, qty: o.qty, unit: o.unit_price }]);
+  const rows = items.map(l => `<tr><td>${esc(l.name)}<br><small>${esc(l.color)} / ${esc(l.size)}</small></td><td>${l.qty}</td><td>${(Number(l.unit) || 0) * l.qty} ج</td></tr>`).join('');
+  const w = window.open('', '_blank', 'width=420,height=640');
+  if (!w) { alert('المتصفح منع النافذة — اسمح بالنوافذ المنبثقة وحاول تاني'); return; }
+  w.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>بوليصة ${esc(o.order_no)}</title>
+<style>body{font-family:Tahoma,Arial,sans-serif;padding:18px;color:#111}h2{margin:0 0 2px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border:1px solid #999;padding:6px;text-align:right;font-size:14px}.tot{font-size:18px;font-weight:bold}.c{text-align:center}.mut{color:#555;font-size:12px}</style>
+</head><body>
+<div class="c"><h2>🦅 ${esc(store)}</h2><div class="mut">بوليصة شحن</div>
+<h3 dir="ltr">${esc(o.order_no)}</h3><div>${fmtDT(o.created_at)}</div></div><hr>
+<b>👤 ${esc(o.name)}</b> — <span dir="ltr">${esc(o.phone)}</span><br>
+📍 ${esc(o.governorate)}${o.area ? ' — ' + esc(o.area) : ''}<br>🏠 ${esc(o.address)}
+${o.notes ? '<br>📝 ' + esc(o.notes) : ''}
+<table><tr><th>المنتج</th><th>عدد</th><th>سعر</th></tr>${rows}</table>
+<div>🚚 الشحن: ${o.shipping} ج${o.coupon_code ? ` &nbsp; 🎟 ${esc(o.coupon_code)} (خصم ${o.discount} ج)` : ''}</div>
+<div class="tot">💰 الإجمالي: ${o.total} جنيه</div>
+<hr><div class="c mut">شكراً لثقتكم 🙏</div>
+<script>window.onload=()=>{window.print()}<\/script></body></html>`);
+  w.document.close();
+  w.focus();
+}
+
+let lastTotal = null, muted = localStorage.getItem('cc_mute') === '1', titleTimer = null;
+const origTitle = document.title;
+function beep() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    if (ctx.state === 'suspended') ctx.resume();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; o.type = 'sine';
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    o.start(); o.stop(ctx.currentTime + 0.55);
+  } catch (e) { /* needs a click first */ }
+}
+function flashTitle(n) {
+  clearInterval(titleTimer);
+  let on = false;
+  titleTimer = setInterval(() => { document.title = on ? origTitle : `(${n}) طلب جديد! 🛎`; on = !on; }, 900);
+  setTimeout(() => { clearInterval(titleTimer); document.title = origTitle; }, 30000);
+}
+async function pollOrders() {
+  const j = await api('/api/admin/stats');
+  if (!j.ok) return;
+  if (lastTotal === null) { lastTotal = j.total; return; }
+  if (Number(j.total) > Number(lastTotal)) {
+    const n = Number(j.total) - Number(lastTotal);
+    lastTotal = j.total;
+    if (!muted) beep();
+    flashTitle(n);
+    loadOrders(1);
+    loadStats();
+  } else lastTotal = j.total;
+}
+function startNotify() {
+  lastTotal = null;
+  setInterval(pollOrders, 30000);
+  const mb = $('muteBtn');
+  const paint = () => { mb.textContent = muted ? '🔕 صامت' : '🔔 تنبيه'; };
+  mb.onclick = () => { muted = !muted; localStorage.setItem('cc_mute', muted ? '1' : '0'); paint(); };
+  paint();
 }
 
 async function delSelected() {

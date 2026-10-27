@@ -217,6 +217,20 @@ function renderProduct() {
   $('discountBadge').textContent = pct ? `خصم ${pct}%` : 'عرض خاص';
   $('discountBadge').style.display = pct ? '' : 'none';
 
+  // real stock (falls back to static stock_line when untracked)
+  const stk = (p.stock === null || p.stock === undefined || p.stock === '') ? null : Math.max(0, Number(p.stock) || 0);
+  const sl = $('stockLine');
+  if (stk === null) { if (SETTINGS.stock_line) sl.innerHTML = SETTINGS.stock_line; }
+  else if (stk === 0) { sl.innerHTML = '😔 نفد المخزون — كلمنا واتساب نحجزلك أول ما يوصل'; }
+  else { sl.innerHTML = `🔥 باقي <b>${stk}</b> قطع بس — اطلب قبل ما يخلص`; }
+  const sold = stk === 0;
+  ['expressBtn', 'addCartBtn'].forEach(id => {
+    const b = $(id);
+    if (b) { b.style.opacity = sold ? '.45' : ''; b.style.pointerEvents = sold ? 'none' : ''; }
+  });
+  if (sold && qty > 0) { qty = 0; $('qtyVal').textContent = '0'; }
+  if (!sold && qty < 1) { qty = 1; $('qtyVal').textContent = '1'; }
+
   // gallery
   $('mainImage').style.display = '';
   $('mainVideo').style.display = 'none';
@@ -368,13 +382,18 @@ function lineImage(x) {
   return c || '/images/logo.jpg';
 }
 
+function stockCap(p) {
+  if (!p || p.stock === null || p.stock === undefined || p.stock === '') return 5;
+  return Math.max(0, Math.min(5, Number(p.stock) || 0));
+}
 function addCurrentToCart(openDrawer) {
   if (!CURRENT) return;
+  if (stockCap(CURRENT) < 1) { toast('نفد المخزون 😔'); return; }
   const color = CURRENT.colors[selColor] ? CURRENT.colors[selColor].name : '';
   const size = CURRENT.sizes[selSize] || '';
   if (!color || !size) { toast('اختار اللون والمقاس الأول'); return; }
   const ex = CART.find(l => l.pid === CURRENT.id && l.color === color && l.size === size);
-  if (ex) ex.qty = Math.min(5, ex.qty + qty);
+  if (ex) ex.qty = Math.min(stockCap(CURRENT), ex.qty + qty);
   else {
     if (CART.length >= 10) { toast('السلة مليانة (10 منتجات بحد أقصى)'); return; }
     CART.push({ pid: CURRENT.id, color, size, qty });
@@ -387,7 +406,8 @@ function addCurrentToCart(openDrawer) {
 
 function changeQty(i, d) {
   if (!CART[i]) return;
-  CART[i].qty = Math.max(1, Math.min(5, CART[i].qty + d));
+  const cp = (typeof PRODUCTS !== 'undefined' ? PRODUCTS : []).find(p => p.id === CART[i].pid);
+  CART[i].qty = Math.max(1, Math.min(stockCap(cp), CART[i].qty + d));
   saveCart(); renderCart(); updateSummary();
 }
 function removeLine(i) {
@@ -418,6 +438,16 @@ function renderCart() {
     box.appendChild(d);
   });
   $('cartSub').textContent = cartSubtotal();
+  const wa = $('cartWa');
+  if (wa) {
+    if (!det.length || !SETTINGS.whatsapp) { wa.style.display = 'none'; }
+    else {
+      wa.style.display = '';
+      const lines = det.map((x, i) => `${i + 1}) ${x.p.name} — ${x.color} / ${x.size} × ${x.qty} = ${x.p.price * x.qty}ج`);
+      const msg = `سلام عليكم 🦅 عايز أطلب من *${SETTINGS.store_name_ar || 'كايرو شيك'}*:\n\n${lines.join('\n')}\n\nالإجمالي (بدون الشحن): ${cartSubtotal()}ج`;
+      wa.href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(msg)}`;
+    }
+  }
   updateCartBadge();
 }
 
@@ -686,8 +716,11 @@ function startReviewsSlider() {
   }, 3200);
 }
 
+function openSizeGuide() { $('sizeModal').classList.add('show'); }
+function closeSizeGuide() { $('sizeModal').classList.remove('show'); }
+
 function bindUI() {
-  $('qtyPlus').onclick = () => { if (qty < 5) { qty++; $('qtyVal').textContent = qty; } };
+  $('qtyPlus').onclick = () => { const cap = stockCap(CURRENT); if (qty < cap) { qty++; $('qtyVal').textContent = qty; } };
   $('qtyMinus').onclick = () => { if (qty > 1) { qty--; $('qtyVal').textContent = qty; } };
   document.querySelectorAll('[data-cta]').forEach(a => a.addEventListener('click', () => track('AddToCart')));
   $('expressBtn').addEventListener('click', () => addCurrentToCart(false));
@@ -712,6 +745,9 @@ function bindUI() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCart(); closeSide(); } });
   $('sbTrackBtn').onclick = doSbTrack;
   startReviewsSlider();
+  if ($('sizeGuideBtn')) $('sizeGuideBtn').onclick = openSizeGuide;
+  if ($('sizeClose')) $('sizeClose').onclick = closeSizeGuide;
+  if ($('sizeModal')) $('sizeModal').addEventListener('click', (e) => { if (e.target.id === 'sizeModal') closeSizeGuide(); });
   $('sbPhone').addEventListener('input', () => {
     $('sbPhone').value = normDigits($('sbPhone').value).replace(/\D/g, '').slice(0, 11);
   });

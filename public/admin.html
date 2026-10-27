@@ -134,6 +134,7 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
     <h2>🦅 لوحة تحكم كايرو شيك</h2>
     <div>
       <a href="/" target="_blank" class="btn btn-ghost btn-mini" style="text-decoration:none">👁 عرض المتجر</a>
+      <button class="btn-mini btn-edit" id="muteBtn">🔔 تنبيه</button>
       <button class="btn-mini btn-del" id="logoutBtn">خروج</button>
     </div>
   </div>
@@ -166,6 +167,7 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
     <div class="filter-row">
       <label>فلتر: <select id="statusFilter"><option value="">كل الطلبات</option></select></label>
       <button class="btn-mini btn-edit" id="refreshOrders">🔄 تحديث</button>
+      <button class="btn-mini btn-edit" id="csvBtn">📥 تصدير CSV</button>
       <button class="btn-mini btn-del" id="delSelectedBtn">🗑 حذف المحدد (<span id="selCount">0</span>)</button>
     </div>
     <div class="table-wrap"><table>
@@ -411,7 +413,8 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <h3 style="margin:0">🧾 تفاصيل الطلب <span dir="ltr" id="mOrderNo"></span></h3>
-      <button class="btn-mini btn-del" id="modalClose">✕</button>
+      <div><button class="btn-mini btn-edit" id="printSlipBtn">🖨 طباعة البوليصة</button>
+      <button class="btn-mini btn-del" id="modalClose">✕</button></div>
     </div>
     <div id="modalBody"></div>
   </div>
