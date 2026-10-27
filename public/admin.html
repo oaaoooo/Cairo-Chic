@@ -40,6 +40,7 @@ tr:hover td { background: #fafafa; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .color-row { display: grid; grid-template-columns: 1fr 2fr auto auto; gap: 8px; margin-bottom: 8px; align-items: center; }
 .color-row img { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; }
+.size-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
 .prod-item { display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
 .prod-item img { width: 64px; height: 80px; object-fit: cover; border-radius: 8px; }
 .prod-item .grow { flex: 1; }
@@ -105,6 +106,7 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
   .table-wrap { overflow-x: visible; }
   /* product form: stack everything */
   .color-row { grid-template-columns: 1fr; gap: 6px; border: 2px dashed #eee; border-radius: 10px; padding: 10px; }
+  .size-row { grid-template-columns: 1fr 1fr; }
   .color-row img { width: 100%; height: 120px; }
   .prod-item { padding: 10px; }
   .prod-item img { width: 52px; height: 66px; }
@@ -200,6 +202,10 @@ input[type=color].pick { width: 80px !important; height: 48px; padding: 4px !imp
         <label>المقاسات (افصل بفاصلة)<input id="pSizes" placeholder="M,L,XL,XXL"></label>
         <label>المخزون<input id="pStock" type="number" min="0" value="100"></label>
       </div>
+      <h3>📏 جدول المقاسات والأوزان (خاص بالمنتج ده)</h3>
+      <div id="sizeRows"></div>
+      <button class="btn-mini btn-edit" id="addSizeBtn" type="button">+ إضافة مقاس</button>
+      <p class="hint">💡 كل منتج له جدول المقاسات الخاص بيه — اكتب المقاس وحدود الوزن بالكيلو. لو سيبته فاضي هيظهر للعميل الجدول الافتراضي.</p>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pActive" checked style="width:auto"> منتج ظاهر في المتجر ✅</label>
       <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pFeatured" style="width:auto"> ⭐ منتج مميز (يظهر أول واحد في المتجر) 🔥</label>
       <h3>🎨 الألوان والصور</h3>

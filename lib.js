@@ -52,6 +52,8 @@ export function parseProduct(p) {
   p.featured = Number(p.featured) || 0;
   try { p.colors = JSON.parse(p.colors || '[]'); } catch { p.colors = []; }
   try { p.sizes = JSON.parse(p.sizes || '[]'); } catch { p.sizes = []; }
+  try { p.size_guide = JSON.parse(p.size_guide || '[]'); } catch { p.size_guide = []; }
+  if (!Array.isArray(p.size_guide)) p.size_guide = [];
   return p;
 }
 
@@ -88,11 +90,20 @@ export function validateProductBody(b) {
   if (!sizes.length) return { error: 'ضيف مقاس واحد على الأقل' };
   const video = String(b.video || '').trim().slice(0, 500);
   if (video && !/^https?:\/\/\S+\.\S+/.test(video)) return { error: 'رابط الفيديو غلط — لازم يبدأ بـ http' };
+  // per-product size/weight guide: [{size, from, to}] — null = absent (keep existing on update)
+  let size_guide = null;
+  if (Array.isArray(b.size_guide)) {
+    size_guide = JSON.stringify(b.size_guide.map(r => ({
+      size: String(r.size || '').trim().slice(0, 10),
+      from: Math.max(0, Number(r.from) || 0),
+      to: Math.max(0, Number(r.to) || 0)
+    })).filter(r => r.size && r.to > 0).slice(0, 12));
+  }
   return {
     data: {
       name, price, old_price, description: String(b.description || ''),
       colors: JSON.stringify(colors), sizes: JSON.stringify(sizes),
-      stock: parseInt(b.stock) || 0, active: b.active ? 1 : 0, featured: b.featured ? 1 : 0, video
+      stock: parseInt(b.stock) || 0, active: b.active ? 1 : 0, featured: b.featured ? 1 : 0, video, size_guide
     }
   };
 }

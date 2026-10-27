@@ -532,8 +532,8 @@ export async function createApp({ q, sessionSecret }) {
     const v = validateProductBody(await c.req.json().catch(() => ({})));
     if (v.error) return c.json({ ok: false, error: v.error });
     const d = v.data;
-    await q`INSERT INTO products(name,price,old_price,description,colors,sizes,stock,active,featured,video)
-      VALUES(${d.name},${d.price},${d.old_price},${d.description},${d.colors},${d.sizes},${d.stock},${d.active},${d.featured},${d.video})`;
+    await q`INSERT INTO products(name,price,old_price,description,colors,sizes,stock,active,featured,video,size_guide)
+      VALUES(${d.name},${d.price},${d.old_price},${d.description},${d.colors},${d.sizes},${d.stock},${d.active},${d.featured},${d.video},${d.size_guide || '[]'})`;
     return c.json({ ok: true });
   });
 
@@ -542,7 +542,8 @@ export async function createApp({ q, sessionSecret }) {
     if (v.error) return c.json({ ok: false, error: v.error });
     const d = v.data;
     await q`UPDATE products SET name=${d.name},price=${d.price},old_price=${d.old_price},
-      description=${d.description},colors=${d.colors},sizes=${d.sizes},stock=${d.stock},active=${d.active},featured=${d.featured},video=${d.video}
+      description=${d.description},colors=${d.colors},sizes=${d.sizes},stock=${d.stock},active=${d.active},featured=${d.featured},video=${d.video},
+      size_guide=COALESCE(${d.size_guide},size_guide)
       WHERE id=${c.req.param('id')}`;
     return c.json({ ok: true });
   });

@@ -132,6 +132,7 @@ function bindPanel() {
   $('modalClose').onclick = () => $('orderModal').classList.remove('show');
   $('orderModal').onclick = (e) => { if (e.target.id === 'orderModal') $('orderModal').classList.remove('show'); };
   $('addColorBtn').onclick = () => addColorRow();
+  $('addSizeBtn').onclick = () => addSizeRow();
   $('saveProdBtn').onclick = saveProduct;
   $('cancelEditBtn').onclick = resetProdForm;
   $('addGovBtn').onclick = addGov;
@@ -481,6 +482,18 @@ function addColorRow(name = '', image = '') {
   $('colorRows').appendChild(div);
 }
 
+function addSizeRow(size = '', from = '', to = '') {
+  const div = document.createElement('div');
+  div.className = 'size-row';
+  div.innerHTML = `
+    <input placeholder="المقاس (L)" value="${esc(size)}" class="s-size">
+    <input placeholder="الوزن من (كجم)" value="${esc(from)}" class="s-from" type="number" min="0" inputmode="numeric">
+    <input placeholder="الوزن إلى (كجم)" value="${esc(to)}" class="s-to" type="number" min="0" inputmode="numeric">
+    <button class="btn-mini btn-del s-remove" type="button">✕</button>`;
+  div.querySelector('.s-remove').onclick = () => div.remove();
+  $('sizeRows').appendChild(div);
+}
+
 function resetProdForm() {
   $('pId').value = '';
   $('pName').value = ''; $('pDesc').value = ''; $('pVideo').value = ''; $('pPrice').value = '';
@@ -489,6 +502,8 @@ function resetProdForm() {
   $('pFeatured').checked = false;
   $('colorRows').innerHTML = '';
   addColorRow();
+  $('sizeRows').innerHTML = '';
+  addSizeRow();
   $('prodFormTitle').textContent = '➕ إضافة منتج جديد';
   $('cancelEditBtn').style.display = 'none';
   $('prodError').textContent = '';
@@ -499,6 +514,11 @@ async function saveProduct() {
     name: r.querySelector('.c-name').value.trim(),
     image: r.querySelector('.c-img').value.trim()
   })).filter(c => c.name);
+  const size_guide = [...$('sizeRows').querySelectorAll('.size-row')].map(r => ({
+    size: r.querySelector('.s-size').value.trim(),
+    from: Number(r.querySelector('.s-from').value || 0),
+    to: Number(r.querySelector('.s-to').value || 0)
+  })).filter(r => r.size && r.to > 0);
   const body = {
     name: $('pName').value.trim(),
     description: $('pDesc').value.trim(),
@@ -506,6 +526,7 @@ async function saveProduct() {
     price: Number($('pPrice').value),
     old_price: Number($('pOld').value || 0),
     sizes: $('pSizes').value.split(',').map(s => s.trim()).filter(Boolean),
+    size_guide,
     stock: Number($('pStock').value || 0),
     active: $('pActive').checked,
     featured: $('pFeatured').checked,
@@ -546,6 +567,9 @@ async function loadProducts() {
       $('colorRows').innerHTML = '';
       p.colors.forEach(c => addColorRow(c.name, c.image));
       if (!p.colors.length) addColorRow();
+      $('sizeRows').innerHTML = '';
+      (p.size_guide || []).forEach(r => addSizeRow(r.size, r.from, r.to));
+      if (!(p.size_guide || []).length) addSizeRow();
       $('prodFormTitle').textContent = '✏️ تعديل: ' + p.name;
       $('cancelEditBtn').style.display = '';
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -553,7 +577,8 @@ async function loadProducts() {
     div.querySelector('.f-feat').onclick = async () => {
       await api('/api/admin/products/' + p.id, 'PUT', {
         name: p.name, description: p.description || '', video: p.video || '', price: p.price, old_price: p.old_price || 0,
-        sizes: p.sizes, stock: p.stock, active: !!p.active, featured: !p.featured, colors: p.colors
+        sizes: p.sizes, stock: p.stock, active: !!p.active, featured: !p.featured, colors: p.colors,
+        size_guide: p.size_guide || []
       });
       loadProducts();
     };
@@ -565,6 +590,7 @@ async function loadProducts() {
     list.appendChild(div);
   });
   if ($('colorRows').children.length === 0) addColorRow();
+  if ($('sizeRows').children.length === 0) addSizeRow();
 }
 
 // ---------- Governorates ----------

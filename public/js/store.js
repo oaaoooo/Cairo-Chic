@@ -716,7 +716,18 @@ function startReviewsSlider() {
   }, 3200);
 }
 
-function openSizeGuide() { $('sizeModal').classList.add('show'); }
+const DEFAULT_GUIDE = [
+  { size: 'M', from: 60, to: 75 },
+  { size: 'L', from: 75, to: 90 },
+  { size: 'XL', from: 90, to: 105 },
+  { size: 'XXL', from: 105, to: 120 }
+];
+function openSizeGuide() {
+  const g = (CURRENT && CURRENT.size_guide && CURRENT.size_guide.length) ? CURRENT.size_guide : DEFAULT_GUIDE;
+  $('sizeRows').innerHTML = g.map(r => `<tr><td><b>${esc(r.size)}</b></td><td>${esc(r.from)} – ${esc(r.to)} كجم</td></tr>`).join('');
+  $('sizeProdName').textContent = CURRENT ? CURRENT.name : '';
+  $('sizeModal').classList.add('show');
+}
 function closeSizeGuide() { $('sizeModal').classList.remove('show'); }
 
 function bindUI() {

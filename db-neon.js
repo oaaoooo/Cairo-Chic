@@ -15,7 +15,7 @@ export function createNeonDb(url) {
   }
 
   // Bump SCHEMA_V whenever DDL/migrations below change.
-  const SCHEMA_V = '7';
+  const SCHEMA_V = '8';
   async function init() {
     // Fast path: schema already current -> skip ~13 queries on every cold start.
     try {
@@ -30,6 +30,7 @@ export function createNeonDb(url) {
       name TEXT NOT NULL, price NUMERIC NOT NULL, old_price NUMERIC DEFAULT 0,
       description TEXT DEFAULT '', colors TEXT DEFAULT '[]', sizes TEXT DEFAULT '[]',
       stock INTEGER DEFAULT 100, active INTEGER DEFAULT 1, featured INTEGER DEFAULT 0, video TEXT DEFAULT '',
+      size_guide TEXT DEFAULT '[]',
       created_at TIMESTAMPTZ DEFAULT NOW())`;
     await sql`CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
@@ -66,6 +67,7 @@ export function createNeonDb(url) {
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS items TEXT DEFAULT '[]'`;
     await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INTEGER DEFAULT 0`;
     await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS video TEXT DEFAULT ''`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS size_guide TEXT DEFAULT '[]'`;
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS area TEXT DEFAULT ''`;
     await sql`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`;
     // ---- seed governorates once (from current shipping settings, single query) ----
