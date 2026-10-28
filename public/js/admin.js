@@ -51,7 +51,9 @@ const VIS_MAP = {
   vReviews: 'show_reviews', vCoupon: 'show_coupon', vFeatures: 'show_features',
   vTrust: 'show_trust', vHow: 'show_how', vFaq: 'show_faq',
   vCountdown: 'show_countdown', vAnnounce: 'show_announce', vWa: 'show_wa',
-  vTrack: 'show_track', vMore: 'show_more'
+  vTrack: 'show_track', vMore: 'show_more',
+  vCatSuits: 'show_cat_suits', vCatJackets: 'show_cat_jackets', vCatPants: 'show_cat_pants',
+  vCatShoes: 'show_cat_shoes', vCatAccess: 'show_cat_access'
 };
 
 async function api(url, method = 'GET', body) {

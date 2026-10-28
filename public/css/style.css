@@ -495,3 +495,12 @@ html { scroll-behavior: smooth; }
 }
 /* v4.5: merged contact - direct WhatsApp inside chat header */
 #chatWaBtn { background: var(--green) !important; font-size: 17px !important; }
+
+/* v4.6: categories + chat WA button (zero storage) */
+.cat-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; scrollbar-width: thin; }
+.cat-tab { flex-shrink: 0; border: 2px solid #e8e8e8; background: #fff; border-radius: 20px; padding: 8px 16px; font-family: inherit; font-weight: 800; font-size: 14px; cursor: pointer; color: var(--text); }
+.cat-tab.on { border-color: var(--orange); background: #fff7ef; color: var(--orange-dark); }
+.cat-tab small { opacity: .55; font-weight: 700; }
+.cat-badge { display: inline-block; background: #eef2ff; color: #4338ca; border-radius: 12px; padding: 4px 12px; font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+.chat-wa-top { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 20px); margin: 10px 10px 0; background: var(--green); color: #fff; border: none; border-radius: 12px; padding: 11px; font-family: inherit; font-weight: 900; font-size: 14px; cursor: pointer; box-shadow: 0 3px 10px rgba(37,211,102,.35); }
+.wa-ico { width: 20px; height: 20px; fill: #fff; flex-shrink: 0; }

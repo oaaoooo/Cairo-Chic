@@ -222,6 +222,7 @@ function renderProduct() {
   const p = CURRENT;
   $('featBadge').style.display = p.featured ? '' : 'none';
   $('productName').textContent = p.name + ' 🔥';
+  { const cb = $('catBadge'); const ck = catOf(p); if (cb) { cb.style.display = (ck && CATS[ck]) ? '' : 'none'; if (ck && CATS[ck]) cb.textContent = '📂 ' + CAT_ICON[ck] + ' ' + CATS[ck].t; } }
   $('productDesc').textContent = p.description || '';
   $('priceNow').textContent = p.price;
   $('stickyPrice').textContent = p.price;
@@ -296,13 +297,65 @@ function renderProduct() {
 }
 
 let moreMode = 'row'; // 'row' = single moving row, 'all' = show-all grid
+
+// ---------- v4.6: categories (zero storage: id map + name fallback) ----------
+const CATS = {
+  suits: { t: 'ترنجات وسويت شيرتات', ids: [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14] },
+  jackets: { t: 'جواكت وفيستات', ids: [2, 13] },
+  pants: { t: 'بناطيل', ids: [15, 16, 17, 18] },
+  shoes: { t: 'كوتشيات وأحذية', ids: [] },
+  access: { t: 'إكسسوارات وأحزمة', ids: [] }
+};
+const CAT_ICON = { suits: '🧥', jackets: '🧣', pants: '👖', shoes: '👟', access: '🕶️' };
+let catTab = 'all';
+try { catTab = localStorage.getItem('cc_cat') || 'all'; } catch (e) { /* ignore */ }
+function catOf(p) {
+  if (!p) return null;
+  for (const k of Object.keys(CATS)) if (CATS[k].ids.includes(p.id)) return k;
+  const n = p.name || '';
+  if (/بنطلون|بانتس|جينز/.test(n)) return 'pants';
+  if (/جاكت|بامب|فيست/.test(n)) return 'jackets';
+  if (/كوتشي|سنيكرز|حذاء|شوز/.test(n)) return 'shoes';
+  if (/حزام|ساعة|نظارة|اكسسوار|شنطة|محفظة|كاب/.test(n)) return 'access';
+  return null;
+}
+function catHidden(k) { return !k || !!(SETTINGS && SETTINGS['show_cat_' + k] === '0'); }
+function catCount(k) { return PRODUCTS.filter(x => x.id !== (CURRENT && CURRENT.id) && catOf(x) === k).length; }
+function paintCatTabs() {
+  const bar = $('catTabs');
+  if (!bar) return;
+  bar.innerHTML = '';
+  if (!PRODUCTS.length) return;
+  if (catTab !== 'all' && (catHidden(catTab) || !catCount(catTab))) catTab = 'all';
+  const mk = (key, label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cat-tab' + (catTab === key ? ' on' : '');
+    b.innerHTML = label;
+    b.onclick = () => { catTab = key; try { localStorage.setItem('cc_cat', key); } catch (e) {} paintCatTabs(); paintMoreProducts(); };
+    bar.appendChild(b);
+  };
+  const visCount = PRODUCTS.filter(x => x.id !== (CURRENT && CURRENT.id) && !catHidden(catOf(x))).length;
+  mk('all', 'الكل <small>(' + visCount + ')</small>');
+  Object.keys(CATS).forEach(k => {
+    if (catHidden(k)) return;
+    const n = catCount(k);
+    if (!n) return;
+    mk(k, CAT_ICON[k] + ' ' + CATS[k].t + ' <small>(' + n + ')</small>');
+  });
+  bar.style.display = bar.children.length > 1 ? '' : 'none';
+}
+
 function renderMoreProducts() {
   const wrap = $('moreProducts');
   wrap.style.display = (SETTINGS && SETTINGS.show_more === '0') ? 'none' : '';
   paintMoreProducts();
+  paintCatTabs();
 }
 function moreList() {
   let rest = PRODUCTS.filter(p => p.id !== CURRENT.id);
+  rest = rest.filter(p => !catHidden(catOf(p)));
+  if (catTab !== 'all') rest = rest.filter(p => catOf(p) === catTab);
   if (moreMode === 'all') {
     const q = (($('allSearch') && $('allSearch').value) || '').trim();
     const sort = ($('allSort') && $('allSort').value) || 'feat';
@@ -604,6 +657,7 @@ function initChat() {
   $('chatFab').onclick = () => ($('chatPanel').style.display === 'none' ? openChat() : closeChat());
   $('chatX').onclick = closeChat;
   $('chatWaBtn').onclick = () => openWhatsApp(SETTINGS.whatsapp || '', waInquiryMsg());
+  $('chatWaTop').onclick = () => openWhatsApp(SETTINGS.whatsapp || '', waInquiryMsg());
   $('chatSend').onclick = () => chatSend();
   $('chatText').addEventListener('keydown', (e) => { if (e.key === 'Enter') chatSend(); });
   $('chatLeadGo').onclick = chatLeadSubmit;
@@ -996,6 +1050,7 @@ function updateWaFloat() {
   const off = !SETTINGS || !SETTINGS.whatsapp || !CURRENT || SETTINGS.show_wa === '0';
   $('sbWaSec').style.display = off ? 'none' : '';
   $('chatWaBtn').style.display = off ? 'none' : '';
+  $('chatWaTop').style.display = off ? 'none' : '';
   if (off) return;
   $('sbWa').href = `https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(waInquiryMsg())}`;
 }
