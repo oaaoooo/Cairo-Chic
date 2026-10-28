@@ -12,7 +12,7 @@
   --radius: 16px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Cairo', Tahoma, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; padding-bottom: 76px; font-size: 15px; }
+body { font-family: 'Cairo', Tahoma, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; padding-bottom: 76px; font-size: 15px; overflow-x: clip; }
 .container { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
 
 /* announcement + header */
@@ -38,8 +38,8 @@ body { font-family: 'Cairo', Tahoma, sans-serif; background: var(--bg); color: v
 .main-img-wrap { position: relative; border-radius: var(--radius); overflow: hidden; background: #eee; }
 .main-img-wrap img { width: 100%; display: block; aspect-ratio: 2/3; object-fit: cover; }
 .discount-badge { position: absolute; top: 12px; right: 12px; background: var(--red); color: #fff; font-weight: 900; padding: 6px 14px; border-radius: 20px; font-size: 15px; }
-.thumbs { display: flex; gap: 10px; margin-top: 10px; }
-.thumbs img { width: 72px; height: 96px; object-fit: cover; border-radius: 10px; cursor: pointer; border: 3px solid transparent; opacity: .75; }
+.thumbs { display: flex; gap: 10px; margin-top: 10px; overflow-x: auto; max-width: 100%; padding-bottom: 6px; scrollbar-width: thin; }
+.thumbs img { width: 72px; height: 96px; object-fit: cover; border-radius: 10px; cursor: pointer; border: 3px solid transparent; opacity: .75; flex-shrink: 0; }
 .thumbs img.active { border-color: var(--orange); opacity: 1; }
 .buy-box h1 { font-size: 25px; font-weight: 900; }
 .rating { color: #f5a623; font-weight: 800; margin: 4px 0; }
