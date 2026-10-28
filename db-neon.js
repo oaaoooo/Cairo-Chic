@@ -21,7 +21,7 @@ export function createNeonDb(url) {
     try {
       const v = await sql`SELECT value FROM settings WHERE key = 'schema_v'`;
       if (v[0] && v[0].value === SCHEMA_V) {
-        await sql`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`;
+        await sql`DELETE FROM governorates WHERE name = 'شمال سيناء'`;
         return;
       }
     } catch { /* fresh DB: fall through to full init */ }
@@ -69,7 +69,7 @@ export function createNeonDb(url) {
     await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS video TEXT DEFAULT ''`;
     await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS size_guide TEXT DEFAULT '[]'`;
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS area TEXT DEFAULT ''`;
-    await sql`DELETE FROM governorates WHERE name IN ('شمال سيناء','جنوب سيناء')`;
+    await sql`DELETE FROM governorates WHERE name = 'شمال سيناء'`;
     // ---- seed governorates once (from current shipping settings, single query) ----
     const cnt = await sql`SELECT COUNT(*)::int c FROM governorates`;
     if (!cnt[0].c) {
