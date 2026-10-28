@@ -229,8 +229,11 @@ function renderProduct() {
   const old = Number(p.old_price) || 0;
   $('priceOld').textContent = old || '';
   $('stickyOld').textContent = old || '';
-  $('saveAmt').textContent = old > p.price ? (old - p.price) : 0;
-  const pct = old > p.price ? Math.round((1 - p.price / old) * 100) : 0;
+  const hasDisc = old > p.price;
+  $('saveAmt').textContent = hasDisc ? (old - p.price) : 0;
+  document.querySelectorAll('.price-row .save, .price-row .price-old').forEach(e => { e.style.display = hasDisc ? '' : 'none'; });
+  document.querySelectorAll('.sticky-old').forEach(e => { e.style.display = hasDisc ? '' : 'none'; });
+  const pct = hasDisc ? Math.round((1 - p.price / old) * 100) : 0;
   $('discountBadge').textContent = pct ? `خصم ${pct}%` : 'عرض خاص';
   $('discountBadge').style.display = pct ? '' : 'none';
 
@@ -239,6 +242,7 @@ function renderProduct() {
   const sl = $('stockLine');
   if (stk === null) { if (SETTINGS.stock_line) sl.innerHTML = SETTINGS.stock_line; }
   else if (stk === 0) { sl.innerHTML = '😔 نفد المخزون — كلمنا واتساب نحجزلك أول ما يوصل'; }
+  else if (stk > 60) { sl.innerHTML = `✅ متوفر حالياً — اطلب دلوقتي والدفع عند الاستلام`; }
   else { sl.innerHTML = `🔥 باقي <b>${stk}</b> قطع بس — اطلب قبل ما يخلص`; }
   const sold = stk === 0;
   ['expressBtn', 'addCartBtn'].forEach(id => {
