@@ -35,6 +35,7 @@ body { font-family: 'Cairo', Tahoma, sans-serif; background: var(--bg); color: v
 
 /* hero */
 .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 22px; background: var(--card); border-radius: var(--radius); padding: 22px; box-shadow: 0 4px 24px rgba(0,0,0,.06); }
+.hero > * { min-width: 0; }
 .main-img-wrap { position: relative; border-radius: var(--radius); overflow: hidden; background: #eee; }
 .main-img-wrap img { width: 100%; display: block; aspect-ratio: 2/3; object-fit: cover; }
 .discount-badge { position: absolute; top: 12px; right: 12px; background: var(--red); color: #fff; font-weight: 900; padding: 6px 14px; border-radius: 20px; font-size: 15px; }
