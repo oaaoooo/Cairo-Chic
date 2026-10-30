@@ -34,7 +34,10 @@ const DEFAULT_REVIEWS = [
   { name: 'كريم ع. | الأسكندرية', rating: 5, comment: 'المقاس طلع مظبوط واللون البيج شيك أوي على الطبيعة.' }
 ];
 
-export async function createApp({ q, sessionSecret, dbKind = 'unknown', getDbBytes = null }) {
+export async function createApp({ q, sessionSecret, adminFiles, dbKind = 'unknown', getDbBytes = null }) {
+  if (!adminFiles?.loginHtml || !adminFiles?.dashboardHtml || !adminFiles?.dashboardJs) {
+    throw new Error('Missing private admin files');
+  }
   const app = new Hono();
 
   async function getSettings() {
@@ -72,7 +75,7 @@ export async function createApp({ q, sessionSecret, dbKind = 'unknown', getDbByt
       VALUES(${'ترنج V11 الشتوي'},${599},${850},
         ${'ترنج V11 الشتوي بخامة ميلتون تقيلة تدفيك في عز البرد، وتلبيس مظبوط وشيك يخليك فورمة طول اليوم. مناسب للخروجات والجامعة والشغل.'},
         ${colors},${JSON.stringify(['M', 'L', 'XL', 'XXL'])},${100},${1})`;
-    console.log('✅ Database seeded (admin password: admin123)');
+    console.log('✅ Database seeded');
   }
 
   // ---------- Seed default testimonials once (product 1) ----------
@@ -116,17 +119,62 @@ export async function createApp({ q, sessionSecret, dbKind = 'unknown', getDbByt
     };
   }
 
+  // The password hash is kept server-side and participates in the signing key.
+  // Changing the admin password therefore invalidates every previous session.
+  const adminSigningKey = (passwordHash) => `${sessionSecret}\0${passwordHash}`;
+
+  async function isAdmin(c) {
+    const token = getCookie(c, 'admin_token');
+    if (!token) return false;
+    const passwordHash = await getSetting('admin_password');
+    if (!passwordHash) return false;
+    const payload = await verifyToken(token, adminSigningKey(passwordHash));
+    return !!(payload && payload.role === 'admin' && Number.isSafeInteger(payload.exp) && payload.exp > Date.now());
+  }
+
+  function adminHeaders(c) {
+    c.header('Cache-Control', 'private, no-store, max-age=0');
+    c.header('Pragma', 'no-cache');
+    c.header('Vary', 'Cookie');
+    c.header('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    c.header('X-Content-Type-Options', 'nosniff');
+    c.header('X-Frame-Options', 'DENY');
+    c.header('Referrer-Policy', 'same-origin');
+    c.header('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'");
+  }
+
   async function requireAdmin(c, next) {
-    const tok = getCookie(c, 'admin_token');
-    const payload = tok ? await verifyToken(tok, sessionSecret) : null;
-    if (!payload || payload.role !== 'admin') return c.json({ ok: false, error: 'غير مسموح' }, 401);
-    c.header('Cache-Control', 'no-store');
+    adminHeaders(c);
+    if (!c.get('adminAuthenticated') && !(await isAdmin(c))) {
+      return c.json({ ok: false, error: 'غير مسموح' }, 401);
+    }
+    c.set('adminAuthenticated', true);
     return next();
   }
 
+  // Protect all present and future admin API routes, except session management.
+  app.use('/api/admin/*', async (c, next) => {
+    adminHeaders(c);
+    const path = c.req.path;
+    if ((c.req.method === 'POST' && (path === '/api/admin/login' || path === '/api/admin/logout')) ||
+        (c.req.method === 'GET' && path === '/api/admin/me')) return next();
+    return requireAdmin(c, next);
+  });
+
+  // Dashboard files are not public assets. Only authenticated requests receive
+  // their contents; everyone else receives the separate login page.
+  async function adminPage(c) {
+    adminHeaders(c);
+    return c.html(await isAdmin(c) ? adminFiles.dashboardHtml : adminFiles.loginHtml);
+  }
+  for (const path of ['/admin', '/admin/', '/admin.html']) app.get(path, adminPage);
+  app.get('/js/admin.js', requireAdmin, (c) => {
+    c.header('Content-Type', 'text/javascript; charset=UTF-8');
+    return c.body(adminFiles.dashboardJs);
+  });
+
   // ---------- Public ----------
   app.get('/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
-  app.get('/admin', (c) => c.redirect('/admin.html'));
 
   async function publicSettings() {
     const s = await getSettings();
@@ -394,8 +442,9 @@ export async function createApp({ q, sessionSecret, dbKind = 'unknown', getDbByt
     const b = await c.req.json().catch(() => ({}));
     const hash = await getSetting('admin_password');
     if (b.password && hash && await verifyPassword(String(b.password), sessionSecret, hash)) {
-      const token = await signToken({ role: 'admin', exp: Date.now() + 12 * 3600e3 }, sessionSecret);
-      const secure = new URL(c.req.url).protocol === 'https:';
+      const token = await signToken({ role: 'admin', exp: Date.now() + 12 * 3600e3 }, adminSigningKey(hash));
+      const forwardedProto = (c.req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+      const secure = new URL(c.req.url).protocol === 'https:' || forwardedProto === 'https';
       setCookie(c, 'admin_token', token, { httpOnly: true, secure, sameSite: 'Lax', path: '/', maxAge: 12 * 3600 });
       return c.json({ ok: true });
     }
@@ -406,9 +455,7 @@ export async function createApp({ q, sessionSecret, dbKind = 'unknown', getDbByt
     return c.json({ ok: true });
   });
   app.get('/api/admin/me', async (c) => {
-    const tok = getCookie(c, 'admin_token');
-    const p = tok ? await verifyToken(tok, sessionSecret) : null;
-    return c.json({ ok: true, admin: !!(p && p.role === 'admin') });
+    return c.json({ ok: true, admin: await isAdmin(c) });
   });
   app.post('/api/admin/password', requireAdmin, async (c) => {
     const b = await c.req.json().catch(() => ({}));
@@ -416,6 +463,7 @@ export async function createApp({ q, sessionSecret, dbKind = 'unknown', getDbByt
       return c.json({ ok: false, error: 'الباسورد الحالي غلط' });
     if (String(b.next || '').length < 6) return c.json({ ok: false, error: 'الباسورد الجديد لازم 6 حروف على الأقل' });
     await setSetting('admin_password', await hashPassword(String(b.next), sessionSecret));
+    deleteCookie(c, 'admin_token', { path: '/' });
     return c.json({ ok: true });
   });
 

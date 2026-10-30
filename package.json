@@ -4,7 +4,8 @@
   "description": "Cairo Chic store - Hono API (Node + Cloudflare Workers) + Neon Postgres",
   "type": "module",
   "scripts": {
-    "start": "node server-node.js"
+    "start": "node server-node.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.0",

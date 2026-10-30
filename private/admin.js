@@ -59,27 +59,33 @@ const VIS_MAP = {
 async function api(url, method = 'GET', body) {
   const r = await fetch(url, {
     method,
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined
   });
+  if (r.status === 401) {
+    window.location.replace('/admin');
+    return { ok: false };
+  }
   return r.json();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const me = await api('/api/admin/me');
-  if (me.admin) showPanel();
-  $('loginBtn').onclick = login;
-  $('adminPass').onkeydown = (e) => { if (e.key === 'Enter') login(); };
+  try {
+    const me = await api('/api/admin/me');
+    if (!me.admin) return window.location.replace('/admin');
+    showPanel();
+  } catch {
+    window.location.replace('/admin');
+  }
 });
 
-async function login() {
-  const j = await api('/api/admin/login', 'POST', { password: $('adminPass').value });
-  if (j.ok) showPanel();
-  else $('loginError').textContent = j.error || 'خطأ';
-}
+// A dashboard restored from browser history must re-check the session.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) window.location.reload();
+});
 
 function showPanel() {
-  $('loginView').style.display = 'none';
   $('panelView').style.display = '';
   bindPanel();
   loadStats();
@@ -121,7 +127,7 @@ function bindPanel() {
   document.querySelectorAll('.dash-card').forEach(c => c.onclick = () => showSection(c.dataset.tab));
   $('backHomeBtn').onclick = () => showSection('home');
   showSection('home');
-  $('logoutBtn').onclick = async () => { await api('/api/admin/logout', 'POST'); location.reload(); };
+  $('logoutBtn').onclick = async () => { await api('/api/admin/logout', 'POST'); location.replace('/admin'); };
   $('refreshOrders').onclick = () => loadOrders(orderPage);
   $('statusFilter').onchange = () => loadOrders(1);
   let searchT = null;
@@ -912,6 +918,10 @@ async function removeLogo() {
 
 async function changePassword() {
   const j = await api('/api/admin/password', 'POST', { current: $('pwCur').value, next: $('pwNew').value });
-  $('pwError').textContent = j.ok ? 'تم تغيير الباسورد ✅' : (j.error || 'خطأ');
-  if (j.ok) { $('pwCur').value = ''; $('pwNew').value = ''; }
+  if (j.ok) {
+    alert('تم تغيير الباسورد ✅ سجّل دخولك من جديد بالباسورد الجديد.');
+    location.replace('/admin');
+  } else {
+    $('pwError').textContent = j.error || 'خطأ';
+  }
 }

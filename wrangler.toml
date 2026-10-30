@@ -3,7 +3,15 @@ name = "cairo-chic"
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
-# Static storefront (HTML/CSS/JS/images) served free & unlimited from CDN
+# The dashboard script is bundled as text, not published as a static asset.
+[[rules]]
+type = "Text"
+globs = ["**/private/admin.js"]
+fallthrough = true
+
+# Only storefront files are public assets. Always run admin routes through
+# the Worker first, even if a conflicting static file is added later.
 [assets]
 directory = "./public"
 not_found_handling = "none"
+run_worker_first = ["/admin*", "/js/admin.js*", "/api/admin/*"]
