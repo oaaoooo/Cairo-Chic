@@ -1,10 +1,13 @@
 // ============================================================
-// worker.js — Cloudflare Workers entry (API + /admin redirect)
-// Static files are served by [assets] CDN (see wrangler.toml)
+// worker.js — Cloudflare Workers entry (API + authenticated admin)
+// Public static files are served by [assets] CDN (see wrangler.toml).
 // Secrets set in dashboard: DATABASE_URL, SESSION_SECRET
 // ============================================================
 import { createApp } from './app.js';
 import { createNeonDb } from './db-neon.js';
+import loginHtml from './private/admin-login.html';
+import dashboardHtml from './private/admin.html';
+import dashboardJs from './private/admin.js';
 
 let booted = null;
 
@@ -13,6 +16,7 @@ async function boot(env) {
   await driver.init();
   return createApp({
     q: driver.q, sessionSecret: env.SESSION_SECRET, dbKind: 'neon',
+    adminFiles: { loginHtml, dashboardHtml, dashboardJs },
     getDbBytes: async () => Number((await driver.q`SELECT pg_database_size(current_database()) s`).rows[0].s)
   });
 }

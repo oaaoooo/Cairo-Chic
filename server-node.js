@@ -32,10 +32,15 @@ const getDbBytes = async () => {
   }
   return bytes;
 };
+const adminFiles = {
+  loginHtml: fs.readFileSync(path.join(process.cwd(), 'private', 'admin-login.html'), 'utf8'),
+  dashboardHtml: fs.readFileSync(path.join(process.cwd(), 'private', 'admin.html'), 'utf8'),
+  dashboardJs: fs.readFileSync(path.join(process.cwd(), 'private', 'admin.js'), 'utf8')
+};
 const { app } = await createApp({
   q: driver.q,
   sessionSecret: process.env.SESSION_SECRET || 'cairo-chic-dev-secret-CHANGE-ME',
-  dbKind, getDbBytes
+  adminFiles, dbKind, getDbBytes
 });
 
 // Static files (on Cloudflare these come from [assets] CDN instead)
@@ -44,7 +49,7 @@ app.use('/*', async (c, next) => {
   if (p.startsWith('/api/') || p.startsWith('/img/') || p === '/health' || p === '/admin') return next();
   const f = p === '/' ? '/index.html' : decodeURIComponent(p);
   const fp = path.join(PUB, f);
-  if (!fp.startsWith(PUB)) return next();
+  if (!fp.startsWith(PUB + path.sep)) return next();
   try {
     const data = await fs.promises.readFile(fp);
     return new Response(data, {
@@ -56,6 +61,6 @@ app.use('/*', async (c, next) => {
   } catch { return next(); }
 });
 
-serve({ fetch: app.fetch, port: Number(PORT) }, () => {
+serve({ fetch: app.fetch, hostname: '0.0.0.0', port: Number(PORT) }, () => {
   console.log(`🚀 Cairo Chic running on port ${PORT}`);
 });
